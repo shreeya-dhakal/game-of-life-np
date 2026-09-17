@@ -1,12 +1,13 @@
 <!doctype html>
-<html lang="en">
+<html lang="ne">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Conway's Game of Life and Devanagari — a terminal Life simulator seeded with Nepali letterforms, and a verb conjugation board where gliders carry morphemes.">
+<meta name="description" content="नेपाली क्रिया रूपावली — Nepali verb conjugation: 24 verbs across 10 paradigms, assembled on a Conway's Game of Life board where gliders carry morphemes.">
 <meta name="theme-color" content="#070A07">
-<title>game-of-life-np</title>
+<title>नेपाली क्रिया रूपावली</title>
 <style>
+  /* ── P1 phosphor CRT. Single-theme by design: a terminal has one look. ── */
   :root{
     --bg:#070A07;
     --panel:#0B100C;
@@ -16,257 +17,1577 @@
     --dim:#44A163;
     --line:#215434;
     --hot:#D8FFE4;
+
     --amber:#FFB53D;
+    --cyan:#5BDDE0;
+    --magenta:#E77BCC;
+    --red:#FF6B5A;
+
+    --stem:var(--phos);
+    --link:var(--amber);
+    --end:var(--cyan);
+    --aux:var(--magenta);
+    --link-wash:rgba(255,181,61,.13);
+    --end-wash:rgba(91,221,224,.13);
+    --aux-wash:rgba(231,123,204,.13);
+    --good:var(--phos);
+    --bad:var(--red);
 
     --f-body:"Kohinoor Devanagari","Noto Sans Devanagari","Devanagari Sangam MN","Nirmala UI","Mangal",system-ui,sans-serif;
     --f-mono:ui-monospace,"SF Mono",Menlo,Consolas,"Courier New",monospace;
+    --glow:0 0 .5em rgba(90,240,140,.35);
   }
 
   *{box-sizing:border-box}
-
   body{
     margin:0;
-    padding:0;
     background:var(--bg);
     color:var(--mid);
-    font-family:var(--f-mono);
-    font-size:14px;
+    font-family:var(--f-body);
+    font-size:16px;
     line-height:1.6;
     -webkit-font-smoothing:antialiased;
   }
 
-  /* faint scanline wash, the way the verbs board carries it */
+  /* scanlines + vignette, painted over everything */
+  body::after{
+    content:"";position:fixed;inset:0;z-index:9;pointer-events:none;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.34) 0 1px,transparent 1px 3px);
+  }
   body::before{
-    content:"";
-    position:fixed;
-    inset:0;
-    pointer-events:none;
-    background:repeating-linear-gradient(
-      to bottom,
-      rgba(90,240,140,.025) 0 1px,
-      transparent 1px 3px
-    );
-    z-index:1;
+    content:"";position:fixed;inset:0;z-index:8;pointer-events:none;
+    background:radial-gradient(ellipse at center,transparent 58%,rgba(0,0,0,.42) 100%);
   }
 
-  .wrap{
-    position:relative;
-    z-index:2;
-    max-width:860px;
-    margin:0 auto;
-    padding:clamp(32px,7vw,72px) 20px 56px;
-  }
+  ::selection{background:var(--phos);color:var(--bg)}
+  :focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 
-  header{
+  .wrap{max-width:1040px;margin:0 auto;padding:0 22px 90px;position:relative;z-index:1}
+
+  @keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+
+  /* ── title bar ── */
+  .bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .bar.top{
+    justify-content:space-between;padding:24px 0 12px;
     border-bottom:1px solid var(--line);
-    padding-bottom:22px;
-    margin-bottom:34px;
+  }
+  .bar.top h1{
+    font-family:var(--f-body);font-size:1.15rem;font-weight:600;margin:0;
+    color:var(--phos);text-shadow:var(--glow);letter-spacing:.02em;
+  }
+  .link{
+    background:none;border:1px solid var(--dim);border-radius:0;
+    padding:4px 10px;color:var(--mid);font-family:var(--f-mono);
+    font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;
+  }
+  .link:hover{color:var(--bg);background:var(--phos);border-color:var(--phos)}
+
+  /* ── seed line ── */
+  .seedrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:22px 0 16px}
+  .seedrow label,.seedcls{
+    font-family:var(--f-mono);font-size:.68rem;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--dim);
+  }
+  select{
+    font-family:var(--f-body);font-size:1rem;color:var(--phos);
+    background:var(--panel);border:1px solid var(--dim);border-radius:0;padding:7px 10px;
+  }
+  select:hover{border-color:var(--phos)}
+  #seed{min-width:240px}
+
+  /* ── the screen ── */
+  .board{
+    background:var(--panel);border:3px double var(--dim);
+    box-shadow:inset 0 0 60px rgba(90,240,140,.06),0 0 0 1px var(--sunk);
+    min-height:400px;padding:20px 24px 18px;
+    display:flex;flex-direction:column;gap:10px;
+  }
+  .screen{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:22px;padding:36px 0 32px;
+  }
+  #board{
+    display:block;width:100%;height:auto;
+    background:var(--sunk);border:1px solid var(--line);
+  }
+  .finds{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;min-height:1.9rem}
+  .find{
+    display:inline-flex;align-items:baseline;gap:.5em;
+    border:1px solid var(--amber);color:var(--amber);
+    background:rgba(255,181,61,.09);padding:2px 9px;font-size:1.05rem;
+  }
+  .find i{font-style:normal;font-family:var(--f-mono);font-size:.6rem;letter-spacing:.1em;color:var(--dim)}
+  /* the word stays in the DOM for screen readers even though tiles draw it */
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+  /* ── morpheme assembly ── */
+  .asm{display:flex;align-items:baseline;flex-wrap:wrap;gap:.4em;font-size:1.15rem;line-height:1.9}
+  .board .asm{justify-content:center}
+  .pt{padding:.06em .34em;white-space:nowrap;border:1px solid transparent}
+  .pt-stem{color:var(--stem);font-weight:600}
+  .pt-link{color:var(--link);background:var(--link-wash);border-color:rgba(255,181,61,.3);font-weight:600}
+  .pt-end{color:var(--end);background:var(--end-wash);border-color:rgba(91,221,224,.3);font-weight:600}
+  .pt-aux{color:var(--aux);background:var(--aux-wash);border-color:rgba(231,123,204,.3);font-weight:600}
+  .pt-zero{color:var(--dim);font-family:var(--f-mono);font-size:.85em}
+  .op{color:var(--dim);font-family:var(--f-mono);font-size:.82em}
+
+  /* ── readout: what form is this, exactly ── */
+  .readout{
+    display:flex;justify-content:space-between;align-items:flex-end;gap:26px;flex-wrap:wrap;
+    border-top:1px solid var(--line);padding-top:13px;
+  }
+  .rl{display:flex;flex-direction:column;gap:1px;min-width:0}
+  .rr{text-align:right;line-height:1.45;flex-shrink:0}
+  .counter{
+    font-family:var(--f-mono);font-size:.7rem;letter-spacing:.18em;
+    color:var(--amber);font-variant-numeric:tabular-nums;
+  }
+  .enname{
+    font-family:var(--f-mono);font-size:.88rem;letter-spacing:.15em;
+    text-transform:uppercase;color:var(--phos);margin-top:2px;
+  }
+  .gradeline{
+    font-family:var(--f-mono);font-size:.7rem;letter-spacing:.15em;
+    text-transform:uppercase;color:var(--mid);
+  }
+  .gloss{font-size:.9rem;color:var(--mid);max-width:54ch;margin-top:4px}
+  .reg{font-size:.85rem;color:var(--dim);max-width:54ch}
+  .detail{
+    font-family:var(--f-mono);font-size:.68rem;letter-spacing:.13em;
+    text-transform:uppercase;color:var(--amber);margin-top:5px;
+  }
+  .detail:empty,.reg:empty,.gloss:empty{display:none}
+  .tag .tense{font-size:1.05rem;color:var(--phos)}
+  .rr .tense{font-size:1.08rem;color:var(--phos);display:block}
+  .rr .who{
+    display:block;font-family:var(--f-mono);font-size:.7rem;letter-spacing:.15em;
+    text-transform:uppercase;color:var(--mid);margin-top:1px;
   }
 
-  h1{
-    font-family:var(--f-mono);
-    font-size:clamp(20px,4.4vw,27px);
-    font-weight:600;
-    letter-spacing:.02em;
-    color:var(--phos);
-    margin:0 0 10px;
+  /* ── controls ── */
+  button{font-family:inherit;font-size:inherit;color:inherit;cursor:pointer}
+  .toolbar{margin-top:16px}
+  .btn{
+    background:var(--panel);color:var(--phos);border:1px solid var(--dim);border-radius:0;
+    padding:8px 14px;font-size:.95rem;transition:background .1s,color .1s,border-color .1s;
+  }
+  .btn::before{content:"[ ";color:var(--dim)}
+  .btn::after{content:" ]";color:var(--dim)}
+  .btn:hover{border-color:var(--phos);box-shadow:0 0 12px rgba(90,240,140,.2)}
+  .btn:not(.ghost){background:var(--phos);color:var(--bg);border-color:var(--phos)}
+  .btn:not(.ghost)::before,.btn:not(.ghost)::after{color:var(--bg)}
+  .btn:not(.ghost):hover{background:var(--hot);border-color:var(--hot)}
+  .hint{
+    color:var(--dim);font-family:var(--f-mono);font-size:.72rem;
+    letter-spacing:.12em;text-transform:uppercase;margin:14px 0 0;
+  }
+  .hint::before{content:"> ";color:var(--phos)}
+  .hint::after{content:"█";margin-left:.4em;color:var(--phos);animation:blink 1.1s steps(1,end) infinite}
+
+  /* ══ व्याकरण panel ══ */
+  #reference{margin-top:6px}
+  .sec{border-top:1px solid var(--line);margin-top:52px;padding-top:14px}
+  .sec-title{
+    font-size:1.4rem;font-weight:600;margin:0;color:var(--phos);
+    text-shadow:var(--glow);text-wrap:balance;
+  }
+  .sec-sub{color:var(--mid);margin:.3rem 0 0;max-width:62ch;font-size:.93rem}
+  .eyebrow{
+    font-family:var(--f-mono);font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--dim);margin:0 0 .3rem;
+  }
+  .eyebrow::before{content:"// "}
+
+  .legend{
+    display:flex;gap:18px;flex-wrap:wrap;font-family:var(--f-mono);font-size:.7rem;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-top:18px;
+  }
+  .legend i{display:inline-block;width:9px;height:9px;margin-right:6px}
+
+  .controls{margin-top:22px;display:flex;flex-direction:column;gap:18px}
+  .group-label{
+    font-family:var(--f-mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--dim);margin:0 0 7px;
+  }
+  .tabs{display:flex;flex-wrap:wrap;gap:0;border-bottom:1px solid var(--line)}
+  .tab{
+    background:none;border:none;border-bottom:2px solid transparent;
+    padding:8px 12px 7px;font-size:.95rem;color:var(--dim);margin-bottom:-1px;
+  }
+  .tab:hover{color:var(--phos)}
+  .tab[aria-selected="true"]{color:var(--amber);border-bottom-color:var(--amber);font-weight:600}
+
+  .rulecard{
+    margin-top:22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+    border:1px solid var(--line);background:var(--panel);
+  }
+  .rulecell{padding:13px 16px;border-right:1px solid var(--line)}
+  .rulecell:last-child{border-right:none}
+  .rulecell .k{
+    font-family:var(--f-mono);font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--dim);display:block;margin-bottom:3px;
+  }
+  .rulecell .v{font-size:1.08rem;color:var(--mid)}
+  .rulecell.on{background:rgba(255,181,61,.08)}
+  .rulecell.on .k{color:var(--amber)}
+  .rulecell.on .v{color:var(--phos)}
+  .meta{display:flex;flex-wrap:wrap;gap:10px 20px;align-items:baseline;margin-top:16px;color:var(--dim);font-size:.92rem}
+  .example{font-size:1.04rem;color:var(--mid)}
+  .flag{
+    font-family:var(--f-mono);font-size:.64rem;letter-spacing:.14em;text-transform:uppercase;
+    border:1px solid var(--amber);color:var(--amber);padding:2px 7px;white-space:nowrap;
   }
 
-  h1 .cursor{
-    display:inline-block;
-    width:.55em;
-    height:1.05em;
-    margin-left:.12em;
-    background:var(--phos);
-    vertical-align:-.16em;
-    animation:blink 1.2s steps(1) infinite;
+  .tblwrap{overflow-x:auto;margin-top:18px;border:1px solid var(--line);background:var(--panel)}
+  table{border-collapse:collapse;width:100%;min-width:600px}
+  th,td{text-align:left;padding:10px 16px;border-bottom:1px solid var(--line);vertical-align:middle}
+  tbody tr:last-child td{border-bottom:none}
+  thead th{
+    font-family:var(--f-mono);font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--dim);font-weight:400;background:var(--sunk);white-space:nowrap;
   }
-
-  @keyframes blink{50%{opacity:0}}
-  @media (prefers-reduced-motion:reduce){ h1 .cursor{animation:none} }
-
-  .lede{
-    margin:0;
-    max-width:62ch;
-    color:var(--dim);
+  td.pro{white-space:nowrap;font-size:1rem;color:var(--mid)}
+  td.pro .grade{
+    display:block;font-family:var(--f-mono);font-size:.63rem;letter-spacing:.1em;
+    color:var(--dim);text-transform:uppercase;margin-top:1px;
   }
+  td.form{font-size:1.35rem;font-weight:600;white-space:nowrap;width:1%;color:var(--phos);text-shadow:none}
+  td.form::after{content:none}
+  td.hon{background:rgba(231,123,204,.07)}
+  .erg-note{padding:10px 16px;background:var(--sunk);border-top:1px solid var(--line);color:var(--dim);font-size:.88rem}
+  .erg-note b{color:var(--amber);font-weight:600}
 
-  .grid{
-    display:grid;
-    grid-template-columns:repeat(2,1fr);
-    gap:18px;
+  .hunu{overflow-x:auto;border:1px solid var(--line);background:var(--panel);margin-top:20px}
+  .hunu table{min-width:660px}
+  .hunu td:not(.pro){font-size:1.22rem;font-weight:600;color:var(--phos)}
+  .hunu thead th .en{
+    display:block;font-family:var(--f-body);font-size:.76rem;letter-spacing:0;
+    text-transform:none;color:var(--dim);margin-top:2px;
   }
+  .usecards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:16px}
+  .usecard{border:1px solid var(--line);padding:14px 16px;background:var(--panel)}
+  .usecard h4{margin:0 0 6px;font-size:1.18rem;font-weight:600;color:var(--amber)}
+  .usecard p{margin:0 0 8px;color:var(--dim);font-size:.88rem}
+  .usecard .ex{font-size:1rem;color:var(--mid);margin:0}
+  .usecard b{color:var(--phos)}
 
-  @media (max-width:680px){
-    .grid{grid-template-columns:1fr}
+  .nonfin{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:1px;
+    background:var(--line);border:1px solid var(--line);margin-top:20px;
   }
-
-  .card{
-    background:var(--panel);
-    border:1px solid var(--line);
-    border-radius:3px;
-    padding:22px 20px 20px;
-    display:flex;
-    flex-direction:column;
+  .nf{background:var(--panel);padding:13px 15px}
+  .nf .w{font-size:1.26rem;font-weight:600;display:block;color:var(--phos)}
+  .nf .n{
+    font-family:var(--f-mono);font-size:.64rem;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--dim);display:block;margin-bottom:2px;
   }
+  .nf .g{color:var(--dim);font-size:.84rem;display:block;margin-top:2px}
 
-  .card h2{
-    margin:0 0 4px;
-    font-size:17px;
-    font-weight:600;
-    color:var(--hot);
-    font-family:var(--f-body);
+  .conf{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:14px;margin-top:20px}
+  .card{border:1px solid var(--line);background:var(--panel);padding:16px 18px}
+  .card h3{margin:0 0 4px;font-size:1.14rem;font-weight:600;color:var(--amber)}
+  .card > p{margin:0 0 12px;color:var(--dim);font-size:.88rem}
+  .card b{color:var(--phos)}
+  .pair{display:flex;flex-direction:column;gap:7px}
+  .line{display:grid;grid-template-columns:1.1rem 1fr;gap:9px;align-items:baseline;font-size:1.02rem;line-height:1.5}
+  .line .m{font-family:var(--f-mono);font-weight:700;font-size:.95rem}
+  .line.ok{color:var(--mid)}
+  .line.ok .m{color:var(--phos)}
+  .line.no .m{color:var(--red)}
+  .line.no span:last-child{color:var(--dim);text-decoration:line-through;text-decoration-color:rgba(255,107,90,.5)}
+  .line .why{display:block;font-size:.8rem;color:var(--dim);margin-top:1px;text-decoration:none}
+
+  .drill{border:1px solid var(--line);background:var(--panel);margin-top:20px}
+  .drill-body{
+    padding:32px 24px;text-align:center;min-height:236px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
   }
-
-  .card h2 .en{
-    display:block;
-    font-family:var(--f-mono);
-    font-size:12px;
-    font-weight:400;
-    letter-spacing:.06em;
-    text-transform:uppercase;
-    color:var(--dim);
-    margin-top:5px;
+  .prompt{
+    font-family:var(--f-mono);font-size:.7rem;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--dim);
   }
-
-  .card p{
-    margin:14px 0 0;
-    color:var(--mid);
-    flex:1;
+  .cue{font-size:1.8rem;font-weight:600;line-height:1.35;text-wrap:balance;color:var(--mid)}
+  .cue .q{color:var(--amber)}
+  .answer{font-size:2.4rem;font-weight:600;margin:4px 0 2px;color:var(--hot);text-shadow:var(--glow)}
+  .drill-asm{justify-content:center}
+  .drill-actions{display:flex;gap:9px;flex-wrap:wrap;justify-content:center;margin-top:16px}
+  .drill-foot{
+    display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;
+    padding:11px 18px;border-top:1px solid var(--line);background:var(--sunk);
+    font-family:var(--f-mono);font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);
   }
+  .drill-foot b{color:var(--amber);font-variant-numeric:tabular-nums;font-weight:600}
+  .scope{display:flex;align-items:center;gap:8px;font-family:var(--f-mono);font-size:.7rem;letter-spacing:.14em;text-transform:uppercase}
+  .scope select{font-size:.85rem;padding:4px 8px}
 
-  .facts{
-    list-style:none;
-    margin:16px 0 0;
-    padding:0;
-    font-size:12.5px;
-    color:var(--dim);
+  footer{margin-top:52px;border-top:1px solid var(--line);padding-top:14px;color:var(--dim);font-size:.87rem;max-width:66ch}
+  footer p{margin:0 0 9px}
+  footer b{color:var(--amber);font-weight:600}
+  footer a{color:var(--phos);text-decoration:none;border-bottom:1px solid var(--line)}
+  footer a:hover,footer a:focus-visible{color:var(--hot);border-bottom-color:var(--phos);outline:none}
+  code{font-family:var(--f-mono);font-size:.85em;background:var(--sunk);color:var(--phos);padding:1px 5px}
+
+  @media (max-width:640px){
+    .wrap{padding:0 14px 60px}
+    .seedrow{margin:18px 0 14px}
+    .board{min-height:0;padding:16px 16px 14px;gap:8px}
+    .screen{padding:26px 0 22px;gap:16px}
+    .readout{flex-direction:column;align-items:flex-start;gap:10px}
+    .rr{text-align:left}
+    .drill-body{padding:24px 14px}
+    .cue{font-size:1.45rem}
+    .answer{font-size:2rem}
   }
-
-  .facts li{
-    padding:3px 0 3px 14px;
-    position:relative;
-  }
-
-  .facts li::before{
-    content:"·";
-    position:absolute;
-    left:2px;
-    color:var(--line);
-  }
-
-  pre{
-    background:var(--sunk);
-    border:1px solid var(--line);
-    border-radius:2px;
-    margin:16px 0 0;
-    padding:12px 13px;
-    overflow-x:auto;
-    font-size:12.5px;
-    color:var(--mid);
-    line-height:1.7;
-  }
-
-  pre .c{color:var(--dim)}
-
-  .go{
-    display:inline-block;
-    margin-top:18px;
-    align-self:flex-start;
-    padding:9px 17px;
-    border:1px solid var(--amber);
-    border-radius:2px;
-    color:var(--amber);
-    text-decoration:none;
-    font-size:13px;
-    letter-spacing:.04em;
-    transition:background .15s,color .15s;
-  }
-
-  .go:hover,.go:focus-visible{
-    background:var(--amber);
-    color:var(--bg);
-    outline:none;
-  }
-
-  footer{
-    margin-top:38px;
-    padding-top:20px;
-    border-top:1px solid var(--line);
-    font-size:12.5px;
-    color:var(--dim);
-    display:flex;
-    flex-wrap:wrap;
-    gap:8px 20px;
-  }
-
-  a{color:var(--phos)}
-  a:hover{color:var(--hot)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
 
 <div class="wrap">
 
-  <header>
-    <h1>game-of-life-np<span class="cursor"></span></h1>
-    <p class="lede">
-      Conway's Game of Life, twice, in Devanagari. One runs in the terminal on
-      letterforms rasterized from a word you type. The other runs in the browser,
-      where each live cell carries an अक्षर and colliding gliders assemble real
-      Nepali verb forms.
-    </p>
-  </header>
+<header class="bar top">
+  <h1>नेपाली क्रिया</h1>
+  <button class="link" id="refbtn" type="button" aria-expanded="false" aria-controls="reference">व्याकरण</button>
+</header>
 
-  <div class="grid">
+<div class="seedrow">
+  <label for="seed">बीउ</label>
+  <select id="seed"></select>
+  <span class="seedcls" id="seedcls"></span>
+</div>
 
-    <section class="card">
-      <h2>
-        नेपाली क्रिया रूपावली
-        <span class="en">Verbs on a Life board</span>
-      </h2>
-      <p>
-        A conjugation reference wired to a B3/S23 board. Every component on the
-        grid is an organism carrying a morpheme; when two collide their words are
-        joined under Devanagari sandhi, and the result is checked against the
-        full paradigm of the chosen root.
-      </p>
-      <ul class="facts">
-        <li>24 verbs · 10 paradigms · 8 person and honorific grades</li>
-        <li>Forms derived from rules, not a hardcoded table</li>
-        <li>Includes a grammar reference and a drill mode</li>
-      </ul>
-      <a class="go" href="verbs/">Open the board →</a>
-    </section>
+<div class="board">
+  <div class="screen">
+    <canvas id="board" aria-hidden="true"></canvas>
+    <div class="finds" id="finds"></div>
+    <div class="sr" id="form" aria-live="polite"></div>
+  </div>
+  <div class="readout">
+    <div class="rl">
+      <span class="counter" id="counter"></span>
+      <span class="enname" id="enname"></span>
+      <span class="gradeline" id="gradeline"></span>
+      <span class="gloss" id="gloss"></span>
+      <span class="reg" id="reg"></span>
+      <span class="detail" id="detail"></span>
+    </div>
+    <div class="rr">
+      <span class="tense" id="tense"></span>
+      <span class="who" id="who"></span>
+    </div>
+  </div>
+</div>
 
-    <section class="card">
-      <h2>
-        जीवन
-        <span class="en">Life in the terminal</span>
-      </h2>
-      <p>
-        Type a word and its letters become the initial colony. Bowls and stems
-        collapse quickly; the counters inside क and म tend to leave still lifes
-        behind. Words dissolve differently depending on how they are shaped.
-      </p>
-      <ul class="facts">
-        <li>Arbitrary rulestrings, toroidal or dead edges</li>
-        <li>Three render styles, including a Devanagari age ramp</li>
-        <li>Detects still lifes, oscillators and extinction</li>
-      </ul>
-<pre><span class="c">$</span> pip install -r requirements.txt
-<span class="c">$</span> python main.py --text नमस्कार
-<span class="c">$</span> python main.py --text कमल --style glyph</pre>
-    </section>
+<div class="bar toolbar">
+  <button class="btn" id="play" type="button">चलाउनुहोस्</button>
+  <button class="btn ghost" id="prev" type="button">थप बीउ</button>
+  <button class="btn ghost" id="step" type="button">एक पुस्ता</button>
+  <button class="btn ghost" id="reset" type="button">सुरुबाट</button>
+  <select id="speed">
+    <option value="220">बिस्तारै</option>
+    <option value="100" selected>सामान्य</option>
+    <option value="45">छिटो</option>
+  </select>
+</div>
 
+<p class="hint">SPACE = PLAY/PAUSE &nbsp; → = ONE GENERATION</p>
+
+<div id="reference" hidden>
+
+<section class="sec">
+  <p class="eyebrow">रूपावली</p>
+  <h2 class="sec-title">क्रिया छान्नुहोस्</h2>
+  <p class="sec-sub">धातुको अन्तिम अक्षरले वर्ग तय गर्छ, र वर्गले जोडनी तय गर्छ। तल जुनसुकै क्रिया र कालमा पूरा रूपावली हेर्न सकिन्छ।</p>
+
+  <div class="controls">
+    <div>
+      <p class="group-label">काल र भाव</p>
+      <div class="tabs" id="tabs" role="tablist"></div>
+    </div>
   </div>
 
-  <footer>
-    <span><a href="https://github.com/shreeya-dhakal/game-of-life-np">Source on GitHub</a></span>
-    <span>Needs a Devanagari font installed</span>
-  </footer>
+  <div class="rulecard" id="rulecard"></div>
+  <div class="meta" id="meta"></div>
+  <div class="legend">
+    <span><i style="background:var(--stem)"></i>धातु</span>
+    <span><i style="background:var(--link)"></i>जोडनी</span>
+    <span><i style="background:var(--end)"></i>अन्त्य</span>
+    <span><i style="background:var(--aux)"></i>सहायक क्रिया</span>
+  </div>
+  <div class="tblwrap">
+    <table>
+      <thead><tr><th>कर्ता</th><th>रूप</th><th>बनोट</th></tr></thead>
+      <tbody id="paradigm"></tbody>
+    </table>
+    <div class="erg-note" id="ergnote" hidden></div>
+  </div>
+</section>
+
+<section class="sec">
+  <p class="eyebrow">असमापिका क्रिया</p>
+  <h2 class="sec-title">पुरुष नबदलिने रूपहरू</h2>
+  <p class="sec-sub">यी रूपहरू कर्ता अनुसार फेरिँदैनन्। वाक्य जोड्न, उद्देश्य देखाउन र नामजस्तो प्रयोग गर्न यिनै चाहिन्छन्।</p>
+  <div class="nonfin" id="nonfinite"></div>
+</section>
+
+<section class="sec">
+  <p class="eyebrow">अनियमित</p>
+  <h2 class="sec-title">हुनु — हो, छ, हुन्छ</h2>
+  <p class="sec-sub">नेपालीमा सबैभन्दा धेरै गल्ती हुने ठाउँ यही हो। अङ्ग्रेजीमा तीनवटै “to be” हुन्, तर नेपालीमा तीन फरक काम गर्छन्।</p>
+  <div class="hunu">
+    <table>
+      <thead><tr>
+        <th>कर्ता</th>
+        <th>हो <span class="en">परिचय</span></th>
+        <th>छ <span class="en">अवस्था, ठाउँ</span></th>
+        <th>हुन्छ <span class="en">सामान्य सत्य</span></th>
+        <th>थियो <span class="en">भूत अवस्था</span></th>
+        <th>भयो <span class="en">भूत घटना</span></th>
+      </tr></thead>
+      <tbody id="hunu"></tbody>
+    </table>
+  </div>
+  <div class="usecards">
+    <div class="usecard">
+      <h4>हो</h4>
+      <p>क को के हो भन्ने — परिचय, नाम, पेशा।</p>
+      <p class="ex">म शिक्षक <b>हुँ</b>। यो मेरो घर <b>हो</b>।</p>
+    </div>
+    <div class="usecard">
+      <h4>छ</h4>
+      <p>कहाँ छ, कस्तो छ — ठाउँ, अवस्था, स्वामित्व।</p>
+      <p class="ex">म घरमा <b>छु</b>। ऊ बिरामी <b>छ</b>।</p>
+    </div>
+    <div class="usecard">
+      <h4>हुन्छ</h4>
+      <p>सधैँ हुने कुरा, बन्ने कुरा, पाइने कुरा।</p>
+      <p class="ex">हिउँदमा जाडो <b>हुन्छ</b>। यहाँ चिया <b>हुन्छ</b>।</p>
+    </div>
+    <div class="usecard">
+      <h4>थियो · भयो</h4>
+      <p>थियो भनेको अवस्था थियो; भयो भनेको बन्यो, घट्यो।</p>
+      <p class="ex">ऊ बिरामी <b>थियो</b>। ऊ बिरामी <b>भयो</b>।</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec">
+  <p class="eyebrow">भुल्ने ठाउँ</p>
+  <h2 class="sec-title">बोल्न आउनेले पनि चुक्ने कुरा</h2>
+  <p class="sec-sub">घरमा नेपाली बोल्दै हुर्केकाहरूले प्रायः यिनै छ ठाउँमा गल्ती गर्छन् — धेरैजसो अङ्ग्रेजीको बानी सर्दा।</p>
+  <div class="conf">
+    <div class="card">
+      <h3>कर्ता विभक्ति <span class="flag">ले</span></h3>
+      <p>सकर्मक क्रिया भूत वा पूर्ण कालमा गयो भने कर्तामा <b>ले</b> चाहिन्छ। अकर्मकमा चाहिँदैन।</p>
+      <div class="pair">
+        <div class="line ok"><span class="m">✓</span><span>मैले भात खाएँ।<span class="why">खानु सकर्मक — ले चाहियो</span></span></div>
+        <div class="line no"><span class="m">✗</span><span>म भात खाएँ।</span></div>
+        <div class="line ok"><span class="m">✓</span><span>म स्कुल गएँ।<span class="why">जानु अकर्मक — ले चाहिँदैन</span></span></div>
+        <div class="line no"><span class="m">✗</span><span>मैले स्कुल गएँ।</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>आदर मिलाउने</h3>
+      <p>तपाईं वा उहाँ भनेपछि क्रिया पनि आदरार्थी हुनुपर्छ। सर्वनाम मात्र बदल्दा पुग्दैन।</p>
+      <div class="pair">
+        <div class="line ok"><span class="m">✓</span><span>तपाईं कहाँ जानुहुन्छ?<span class="why">धातु + नु + हुन्छ</span></span></div>
+        <div class="line no"><span class="m">✗</span><span>तपाईं कहाँ जान्छ?</span></div>
+        <div class="line ok"><span class="m">✓</span><span>उहाँले भन्नुभयो।</span></div>
+        <div class="line no"><span class="m">✗</span><span>उहाँले भन्यो।</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>गर्छु कि गर्दैछु</h3>
+      <p>अङ्ग्रेजीको “I am doing” ले गर्दा निरन्तर रूप बढी प्रयोग हुन्छ। रोजिन्दा कुरामा अभ्यस्त वर्तमान नै ठीक हो।</p>
+      <div class="pair">
+        <div class="line ok"><span class="m">✓</span><span>म बैंकमा काम गर्छु।<span class="why">पेशा, नियमित काम</span></span></div>
+        <div class="line ok"><span class="m">✓</span><span>म अहिले काम गर्दैछु।<span class="why">यही बेला भइरहेको</span></span></div>
+        <div class="line no"><span class="m">✗</span><span>म बैंकमा काम गर्दैछु।<span class="why">पेशा जनाउन मिल्दैन</span></span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>गरेँ कि गर्थेँ</h3>
+      <p>एकपटक भएको काम र पहिले नियमित गर्ने गरेको काम फरक हुन्।</p>
+      <div class="pair">
+        <div class="line ok"><span class="m">✓</span><span>म हिजो पोखरा गएँ।<span class="why">एकपटक, सकियो</span></span></div>
+        <div class="line ok"><span class="m">✓</span><span>म बर्सेनि पोखरा जान्थेँ।<span class="why">पहिले नियमित गर्थेँ</span></span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>गरेँ कि गरेको छु</h3>
+      <p>सामान्य भूतले कहिले भयो भन्ने जनाउँछ; पूर्णले अहिलेसम्मको अनुभव वा असर जनाउँछ।</p>
+      <div class="pair">
+        <div class="line ok"><span class="m">✓</span><span>मैले हिजो चिठी लेखेँ।<span class="why">समय तोकिएको</span></span></div>
+        <div class="line ok"><span class="m">✓</span><span>मैले चिठी लेखेको छु।<span class="why">लेखिसकेको छु, अहिले पनि सान्दर्भिक</span></span></div>
+        <div class="line no"><span class="m">✗</span><span>मैले हिजो चिठी लेखेको छु।</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>तिमी र तँ को अन्त्य</h3>
+      <p>तिमी र तँ को रूप मिल्दोजुल्दो देखिन्छ तर फरक छ — तँ मा <code>स्</code> थपिन्छ।</p>
+      <div class="pair">
+        <div class="line ok"><span class="m">✓</span><span>तिमी के गर्छौ? · तँ के गर्छस्?</span></div>
+        <div class="line no"><span class="m">✗</span><span>तिमी के गर्छस्?</span></div>
+        <div class="line ok"><span class="m">✓</span><span>तिमीले भन्यौ। · तैंले भनिस्।<span class="why">तँ को कर्ता रूप तैंले हो</span></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec">
+  <p class="eyebrow">अभ्यास</p>
+  <h2 class="sec-title">रूप सम्झनुहोस्</h2>
+  <p class="sec-sub">क्रिया, कर्ता र काल देखाइन्छ। मनमा रूप बनाएर मात्र उत्तर हेर्नुहोस्।</p>
+  <div class="drill">
+    <div class="drill-body" id="drillbody"></div>
+    <div class="drill-foot">
+      <span class="scope">
+        <label for="scope">दायरा</label>
+        <select id="scope"><option value="all">सबै काल</option><option value="cur">अहिलेको काल मात्र</option></select>
+      </span>
+      <span>लगातार <b id="streak">०</b> · सही <b id="score">०/०</b></span>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p><b>यो पानाबारे।</b> सबै रूप तालिकाबाट टिपिएका होइनन् — धातु, जोडनी र अन्त्यबाट नियम अनुसार बनाइएका हुन्, अनि देवनागरी सन्धि लागू गरिएको छ। त्यसैले जुनसुकै नियमित धातु थप्दा पूरै रूपावली आफैँ बन्छ।</p>
+  <p><b>अझै छुटेको।</b> नकारात्मक रूप (गर्दिनँ, गरेनँ) यसमा छैनन् — ती बनाउने नियम जटिल छ र गलत देखाउनुभन्दा नदेखाउनु ठीक ठानें। <b>सम्भावना</b> कालका केही रूप मैले कम विश्वासका साथ राखेको छु; कसैले जाँचिदिए राम्रो।</p>
+  <p><b>टर्मिनलमा।</b> यिनै नियममा चल्ने अर्को रूप पनि छ — पाइथनमा लेखिएको, टर्मिनलमा चल्ने, जहाँ तपाईंले टाइप गरेको शब्दका अक्षर नै सुरुको बस्ती बन्छन्। कोड र चलाउने तरिका <a href="https://github.com/shreeya-dhakal/game-of-life-np">GitHub</a> मा छ।</p>
+  <p><b>सच्याउन।</b> नियमहरू फाइलको सुरुतिरको <code>PARADIGMS</code> भन्ने एउटै ठाउँमा छन् — त्यहीँ सच्याए पुग्छ।</p>
+</footer>
+</div>
 
 </div>
 
+<script>
+"use strict";
+
+/* ══════════════════════════════════════════════════════════════════════
+   देवनागरी सन्धि — orthographic joining.
+   Suffixes are written in their abstract form (एँ, ्यौं, इस्). This decides
+   how each one is actually spelled once it lands on a given stem:
+     गर् + एँ  → गरेँ   (the halanta drops, the vowel becomes a matra)
+     खा  + एँ  → खाएँ   (after a vowel it keeps its independent letter)
+     ग   + एँ  → गएँ    (inherent अ is a vowel too, so nothing fuses)
+   ══════════════════════════════════════════════════════════════════════ */
+const VIRAMA = "्";
+const MATRA = { "अ":"", "आ":"ा", "इ":"ि", "ई":"ी", "उ":"ु", "ऊ":"ू", "ए":"े", "ऐ":"ै", "ओ":"ो", "औ":"ौ" };
+const COMBINING_RE = /[ऺ-ॏ॑-ॗॢॣ़]/;
+
+/** Join a suffix onto a base. Returns the spelled result and where the suffix begins. */
+function join(base, suffix){
+  if (!base) return { s: suffix, cut: 0 };
+  if (!suffix) return { s: base, cut: base.length };
+  const first = suffix[0];
+
+  // Only a halanta base fuses with a following vowel. A base ending in a bare
+  // consonant still carries its inherent अ, so the vowel keeps its independent
+  // letter form — which is why the suppletive past stem ग- gives गएँ, not गेँ.
+  if (base.endsWith(VIRAMA) && first in MATRA){
+    const stripped = base.slice(0, -1);
+    return { s: stripped + MATRA[first] + suffix.slice(1), cut: stripped.length };
+  }
+  if (first === VIRAMA && !base.endsWith(VIRAMA)){
+    return { s: base + suffix.slice(1), cut: base.length };
+  }
+  return { s: base + suffix, cut: base.length };
+}
+
+/** Assemble morpheme parts into a finished word. */
+function assemble(parts){
+  let word = "";
+  for (const p of parts){ if (p.s) word = join(word, p.s).s; }
+  return word;
+}
+
+/** Combining marks get a dotted circle, the way grammar books cite them. */
+function cite(s){
+  if (!s) return "∅";
+  return COMBINING_RE.test(s[0]) ? "◌" + s : s;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   PARADIGMS — every inflected form on this page comes from here.
+   To correct a form, correct the rule; the whole lexicon follows.
+   ══════════════════════════════════════════════════════════════════════ */
+
+const PERSONS = [
+  { k:"ma", en:"1st person · singular", reg:"",    pro:"म",            erg:"मैले",           grade:"प्रथम पुरुष" },
+  { k:"hami", en:"1st person · plural", reg:"",  pro:"हामी(हरू)",     erg:"हामी(हरू)ले",     grade:"प्रथम बहुवचन" },
+  { k:"ta", en:"2nd person · low grade", reg:"intimate — for children and close equals; rude to an adult you don't know well",    pro:"तँ",            erg:"तैंले",           grade:"द्वितीय · निम्न" },
+  { k:"timi", en:"2nd person · mid grade", reg:"familiar — friends, juniors, younger relatives",  pro:"तिमी(हरू)",     erg:"तिमी(हरू)ले",     grade:"द्वितीय · मध्यम" },
+  { k:"tapai", en:"2nd person · high grade", reg:"polite — elders, strangers, anyone senior to you", pro:"तपाईं(हरू)",    erg:"तपाईं(हरू)ले",    grade:"द्वितीय · आदर", hon:true },
+  { k:"u", en:"3rd person · low grade", reg:"children, animals, objects; blunt for an adult",     pro:"ऊ / त्यो",      erg:"उसले / त्यसले",   grade:"तृतीय · निम्न" },
+  { k:"uni", en:"3rd person · mid grade", reg:"familiar, and the plural for low and mid alike",   pro:"उनी / उनीहरू",  erg:"उनले / उनीहरूले", grade:"तृतीय · मध्यम" },
+  { k:"uha", en:"3rd person · high grade", reg:"respectful — elders, guests, people spoken of politely",   pro:"उहाँ / वहाँ",   erg:"उहाँले",          grade:"तृतीय · आदर", hon:true },
+];
+
+// छ-series endings, shared by habitual present, continuous, perfect and future.
+const CHA  = { ma:"छु", hami:"छौं", ta:"छस्", timi:"छौ", u:"छ", uni:"छन्" };
+// Past endings, shared by simple past and habitual past. One set, both spellings.
+const PAST = { ma:"एँ", hami:"यौं", ta:"इस्", timi:"यौ", u:"यो", uni:"ए" };
+// अभ्यस्त भूत: the -थ- marker fuses with the ending, so it is one morph here.
+const HPAST = { ma:"थेँ", hami:"थ्यौं", ta:"थिस्", timi:"थ्यौ", u:"थ्यो", uni:"थे" };
+// थियो-series, for the past compound tenses.
+const THI  = { ma:"थिएँ", hami:"थियौं", ta:"थिइस्", timi:"थियौ", u:"थियो", uni:"थिए" };
+// -एको participle: plural subjects take -एका.
+const PTCP = { ma:"एको", hami:"एका", ta:"एको", timi:"एको", u:"एको", uni:"एका" };
+
+// The linker before छ / थ, and the linker before the -द converb. They differ
+// for स्वरान्त stems, which is the single most irregular thing in the system.
+const L_CHA = { C:"",  V:"न्", U:"ँ" };
+const L_DA  = { C:"",  V:"ँ",  U:"ँ" };
+
+const st  = v => ({ t:"stem", s:v.stem });
+const pst = v => ({ t:"stem", s:v.past });
+const inf = v => ({ t:"stem", s:v.inf });
+
+const PARADIGMS = [
+  {
+    id:"habpres", short:"वर्तमान", na:"अभ्यस्त वर्तमान", en:"habitual present", enNote:"regular action, profession, general truth",
+    note:"नियमित काम, पेशा, सामान्य सत्य।", ex:"म हरेक बिहान चिया खान्छु।",
+    rule:{ C:"धातु + छु", V:"धातु + न् + छु", U:"धातु + ◌ँ + छु" },
+    parts(v,k){
+      return PERSONS.find(p=>p.k===k).hon
+        ? [inf(v), { t:"aux", s:"हुन्छ" }]
+        : [st(v), { t:"link", s:L_CHA[v.cls] }, { t:"end", s:CHA[k] }];
+    }
+  },
+  {
+    id:"prescont", short:"निरन्तर", na:"वर्तमान निरन्तर", en:"present continuous", enNote:"happening right now, as you speak",
+    note:"बोल्दै गर्दा भइरहेको काम।", ex:"म अहिले भात खाँदैछु।",
+    rule:{ C:"धातु + दै + छु", V:"धातु + ◌ँ + दै + छु", U:"धातु + ◌ँ + दै + छु" },
+    parts(v,k){
+      const base = [st(v), { t:"link", s:L_DA[v.cls] }, { t:"end", s:"दै" }];
+      return PERSONS.find(p=>p.k===k).hon
+        ? base.concat({ t:"aux", s:" हुनुहुन्छ" })
+        : base.concat({ t:"aux", s:CHA[k] });
+    }
+  },
+  {
+    id:"presperf", short:"पूर्ण", na:"वर्तमान पूर्ण", en:"present perfect", enNote:"done already, and still relevant now",
+    note:"भइसकेको, तर अहिलेसम्म असर रहेको काम।", ex:"मैले त्यो किताब पढेको छु।",
+    erg:true,
+    rule:{ C:"भूत धातु + एको + छु", V:"भूत धातु + एको + छु", U:"उ हटेको धातु + एको + छु" },
+    parts(v,k){
+      return PERSONS.find(p=>p.k===k).hon
+        ? [inf(v), { t:"aux", s:"भएको छ" }]
+        : [pst(v), { t:"end", s:PTCP[k] }, { t:"aux", s:" " + CHA[k] }];
+    }
+  },
+  {
+    id:"past", short:"भूत", na:"सामान्य भूत", en:"simple past", enNote:"completed, usually at a stated time",
+    note:"सकिएको काम, तोकिएको समय।", ex:"मैले हिजो चिठी लेखेँ।",
+    erg:true,
+    rule:{ C:"धातु + एँ → गरेँ", V:"धातु + एँ → खाएँ", U:"उ हट्छ → आएँ" },
+    parts(v,k){
+      return PERSONS.find(p=>p.k===k).hon
+        ? [inf(v), { t:"aux", s:"भयो" }]
+        : [pst(v), { t:"end", s:PAST[k] }];
+    }
+  },
+  {
+    id:"habpast", short:"अभ्यस्त भूत", na:"अभ्यस्त भूत", en:"habitual past", enNote:"used to do it regularly — but not any more",
+    note:"पहिले नियमित गरिने काम — अब गरिँदैन।", ex:"म बर्सेनि पोखरा जान्थेँ।",
+    rule:{ C:"धातु + थेँ", V:"धातु + न् + थेँ", U:"धातु + ◌ँ + थेँ" },
+    parts(v,k){
+      return PERSONS.find(p=>p.k===k).hon
+        ? [inf(v), { t:"aux", s:"हुन्थ्यो" }]
+        : [st(v), { t:"link", s:L_CHA[v.cls] }, { t:"end", s:HPAST[k] }];
+    }
+  },
+  {
+    id:"pastcont", short:"भूत निरन्तर", na:"भूत निरन्तर", en:"past continuous", enNote:"was in progress at some moment in the past",
+    note:"भूतमा कुनै बेला भइरहेको काम।", ex:"म खाना खाँदै थिएँ।",
+    rule:{ C:"धातु + दै + थिएँ", V:"धातु + ◌ँ + दै + थिएँ", U:"धातु + ◌ँ + दै + थिएँ" },
+    parts(v,k){
+      const base = [st(v), { t:"link", s:L_DA[v.cls] }, { t:"end", s:"दै" }];
+      return PERSONS.find(p=>p.k===k).hon
+        ? base.concat({ t:"aux", s:" हुनुहुन्थ्यो" })
+        : base.concat({ t:"aux", s:" " + THI[k] });
+    }
+  },
+  {
+    id:"pastperf", short:"भूत पूर्ण", na:"भूत पूर्ण", en:"past perfect", enNote:"finished before some other past event",
+    note:"अर्को भूत घटनाभन्दा अघि सकिएको काम।", ex:"ऊ आउनुअघि मैले खाना पकाएको थिएँ।",
+    erg:true,
+    rule:{ C:"भूत धातु + एको + थिएँ", V:"भूत धातु + एको + थिएँ", U:"उ हटेको धातु + एको + थिएँ" },
+    parts(v,k){
+      return PERSONS.find(p=>p.k===k).hon
+        ? [inf(v), { t:"aux", s:"भएको थियो" }]
+        : [pst(v), { t:"end", s:PTCP[k] }, { t:"aux", s:" " + THI[k] }];
+    }
+  },
+  {
+    id:"future", short:"भविष्यत्", na:"सामान्य भविष्यत्", en:"simple future", enNote:"mostly written; speech usually uses the habitual present",
+    note:"लेख्य भाषामा बढी। बोलीमा प्रायः अभ्यस्त वर्तमानले नै काम चलाउँछ।", ex:"म भोलि काठमाडौं जानेछु।",
+    rule:{ C:"धातु + ने + छु", V:"धातु + ने + छु", U:"धातु + ने + छु" },
+    parts(v,k){
+      return PERSONS.find(p=>p.k===k).hon
+        ? [inf(v), { t:"aux", s:"हुनेछ" }]
+        : [st(v), { t:"end", s:"ने" }, { t:"end", s:CHA[k] }];
+    }
+  },
+  {
+    id:"prob", short:"सम्भावना", na:"सम्भावना", en:"probable", enNote:"guess or likelihood — might, probably will",
+    note:"हुन सक्छ, होला भन्ने अनुमान।", ex:"ऊ भोलि आउला।",
+    verify:true,
+    rule:{ C:"धातु + ला", V:"धातु + ला", U:"धातु + ◌ँ + ला" },
+    parts(v,k){
+      if (PERSONS.find(p=>p.k===k).hon) return [inf(v), { t:"aux", s:"होला" }];
+      if (k === "ma") return [st(v), { t:"end", s:{ C:"उँला", V:"उँला", U:"ँला" }[v.cls] }];
+      if (k === "hami") return v.cls === "U"
+        ? [pst(v), { t:"end", s:"औंला" }]
+        : [st(v), { t:"end", s:"औंला" }];
+      const tail = { ta:"लास्", timi:"लौ", u:"ला", uni:"लान्" }[k];
+      return [st(v), { t:"link", s:v.cls === "U" ? "ँ" : "" }, { t:"end", s:tail }];
+    }
+  },
+  {
+    id:"imp", short:"आज्ञा", na:"आज्ञा र इच्छा", en:"imperative & optative", enNote:"commands, requests, and “let's …”",
+    note:"आदेश, अनुरोध, र “गरौं” भन्ने प्रस्ताव।", ex:"कृपया यता आउनुहोस्।",
+    rule:{ C:"तिमी → धातु + अ", V:"तिमी → धातु + ऊ", U:"तिमी → उ हट्छ + ऊ" },
+    parts(v,k){
+      if (PERSONS.find(p=>p.k===k).hon) return [inf(v), { t:"aux", s:"होस्" }];
+      const over = v.imp && v.imp[k];
+      if (over) return [{ t:"stem", s:over }];
+      const base = v.cls === "U" ? v.past : v.stem;
+      if (k === "ta") return [{ t:"stem", s:base }];
+      const tail = { ma:"ऊँ", hami:"औं", timi:(v.cls === "C" ? "अ" : "ऊ"), u:"ओस्", uni:"ऊन्" }[k];
+      return [{ t:"stem", s:base }, { t:"end", s:tail }];
+    }
+  },
+];
+
+/* ── the lexicon ── */
+const V = (inf, stem, cls, gloss, tr, extra) =>
+  Object.assign({ inf, stem, cls, gloss, tr }, extra || {});
+
+const VERBS = [
+  V("गर्नु","गर्","C","to do",true),
+  V("भन्नु","भन्","C","to say",true),
+  V("हेर्नु","हेर्","C","to look",true),
+  V("पढ्नु","पढ्","C","to read",true),
+  V("लेख्नु","लेख्","C","to write",true),
+  V("सुन्नु","सुन्","C","to hear",true),
+  V("बुझ्नु","बुझ्","C","to understand",true),
+  V("सिक्नु","सिक्","C","to learn",true),
+  V("देख्नु","देख्","C","to see",true),
+  V("किन्नु","किन्","C","to buy",true),
+  V("राख्नु","राख्","C","to keep",true),
+  V("बस्नु","बस्","C","to sit, live",false),
+  V("सुत्नु","सुत्","C","to sleep",false),
+  V("हिँड्नु","हिँड्","C","to walk",false),
+
+  V("खानु","खा","V","to eat",true),
+  V("जानु","जा","V","to go",false,{ past:"ग", irr:"भूत धातु ग" }),
+  V("दिनु","दि","V","to give",true,{ imp:{ ta:"दे", timi:"देऊ" } }),
+  V("लिनु","लि","V","to take",true,{ imp:{ ta:"ले", timi:"लेऊ" } }),
+
+  V("आउनु","आउ","U","to come",false,{ imp:{ ta:"आइज" } }),
+  V("पाउनु","पाउ","U","to get",true),
+  V("गाउनु","गाउ","U","to sing",true),
+  V("ल्याउनु","ल्याउ","U","to bring",true),
+  V("पिउनु","पिउ","U","to drink",true),
+  V("नुहाउनु","नुहाउ","U","to bathe",false),
+];
+
+// उ-अन्त धातुको भूत रूपमा अन्तिम उ हट्छ: आउ → आ, पिउ → पि
+for (const v of VERBS){
+  if (!v.past) v.past = v.cls === "U" ? v.stem.replace(/उ$/, "") : v.stem;
+}
+
+const CLASS_NAME = { C:"व्यञ्जनान्त", V:"स्वरान्त", U:"उ-अन्त" };
+
+/* ── हुनु: suppletive, so it is written out rather than derived ── */
+const HUNU = {
+  ho:      { ma:"हुँ",  hami:"हौं",   ta:"होस्",  timi:"हौ",   tapai:"हुनुहुन्छ",    u:"हो",   uni:"हुन्",   uha:"हुनुहुन्छ" },
+  chha:    { ma:"छु",   hami:"छौं",   ta:"छस्",   timi:"छौ",   tapai:"हुनुहुन्छ",    u:"छ",    uni:"छन्",    uha:"हुनुहुन्छ" },
+  hunchha: { ma:"हुन्छु", hami:"हुन्छौं", ta:"हुन्छस्", timi:"हुन्छौ", tapai:"हुनुहुन्छ",    u:"हुन्छ",  uni:"हुन्छन्",  uha:"हुनुहुन्छ" },
+  thiyo:   { ma:"थिएँ", hami:"थियौं", ta:"थिइस्", timi:"थियौ", tapai:"हुनुहुन्थ्यो", u:"थियो", uni:"थिए",    uha:"हुनुहुन्थ्यो" },
+  bhayo:   { ma:"भएँ",  hami:"भयौं",  ta:"भइस्",  timi:"भयौ",  tapai:"हुनुभयो",     u:"भयो",  uni:"भए",     uha:"हुनुभयो" },
+};
+
+/* ── non-finite forms ── */
+const NONFINITE = [
+  { n:"क्रियार्थक नाम", g:"dictionary form",       build:v => v.inf },
+  { n:"उद्देश्यवाचक",   g:"in order to …",          build:v => join(v.stem, "न").s },
+  { n:"भविष्यवाचक",    g:"the one that will …",     build:v => join(v.stem, "ने").s },
+  { n:"पूर्णकालिक",     g:"having …-ed",            build:v => join(v.past, "एको").s },
+  { n:"पूर्वकालिक",     g:"…-ing, then",            build:v => join(v.past, "एर").s },
+  { n:"क्रियाविशेषण",   g:"by …-ing",               build:v => join(v.past, "ई").s },
+  { n:"अपूर्णकालिक",    g:"while …-ing",            build:v => join(join(v.stem, L_DA[v.cls]).s, "दै").s },
+  { n:"समयवाचक",       g:"when …-ing",             build:v => join(join(v.stem, L_DA[v.cls]).s, "दा").s },
+  { n:"सर्तवाचक",      g:"if …",                   build:v => join(v.past, "ए").s + " भने" },
+];
+
+/* ══════════════════════════════════════════════════════════════════════
+   रेन्डर
+   ══════════════════════════════════════════════════════════════════════ */
+
+const $ = s => document.querySelector(s);
+const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
+
+let curVerb = VERBS[0];
+let curPara = PARADIGMS[0];
+
+function asmNodes(parts){
+  const frag = document.createDocumentFragment();
+  const shown = parts.filter(p => p.s !== undefined);
+  shown.forEach((p, i) => {
+    if (i) frag.appendChild(el("span", "op", "+"));
+    const cls = p.s ? "pt pt-" + p.t : "pt pt-zero";
+    frag.appendChild(el("span", cls, cite(p.s.trim() || p.s)));
+  });
+  return frag;
+}
+
+function renderSeed(){
+  const sel = $("#seed");
+  if (!sel.options.length){
+    for (const cls of ["C","V","U"]){
+      const group = document.createElement("optgroup");
+      group.label = CLASS_NAME[cls];
+      for (const v of VERBS.filter(x => x.cls === cls)){
+        const opt = document.createElement("option");
+        opt.value = v.inf;
+        opt.textContent = v.inf + " — " + v.gloss;
+        group.appendChild(opt);
+      }
+      sel.appendChild(group);
+    }
+    sel.addEventListener("change", () => {
+      curVerb = VERBS.find(v => v.inf === sel.value);
+      renderAll();
+      reset(true);
+    });
+  }
+  sel.value = curVerb.inf;
+  $("#seedcls").textContent = CLASS_NAME[curVerb.cls] + " · धातु " + curVerb.stem;
+}
+
+function renderTabs(){
+  const box = $("#tabs");
+  box.textContent = "";
+  for (const p of PARADIGMS){
+    const b = el("button", "tab", p.na);
+    b.type = "button";
+    b.setAttribute("role", "tab");
+    b.setAttribute("aria-selected", String(p === curPara));
+    b.addEventListener("click", () => { curPara = p; renderAll(); });
+    box.appendChild(b);
+  }
+}
+
+function renderRule(){
+  const box = $("#rulecard");
+  box.textContent = "";
+  for (const cls of ["C","V","U"]){
+    const cell = el("div", "rulecell" + (cls === curVerb.cls ? " on" : ""));
+    cell.appendChild(el("span", "k", CLASS_NAME[cls]));
+    cell.appendChild(el("span", "v", curPara.rule[cls]));
+    box.appendChild(cell);
+  }
+
+  const meta = $("#meta");
+  meta.textContent = "";
+  meta.appendChild(el("span", "example", curPara.ex));
+  meta.appendChild(el("span", null, curPara.note));
+  if (curPara.verify) meta.appendChild(el("span", "flag", "जाँच बाँकी"));
+  if (curVerb.irr) meta.appendChild(el("span", "flag", "अनियमित · " + curVerb.irr));
+}
+
+function renderParadigm(){
+  const body = $("#paradigm");
+  body.textContent = "";
+  const useErg = curPara.erg && curVerb.tr;
+
+  for (const p of PERSONS){
+    const parts = curPara.parts(curVerb, p.k);
+    const tr = el("tr");
+
+    const pro = el("td", "pro" + (p.hon ? " hon" : ""));
+    pro.append(useErg ? p.erg : p.pro);
+    pro.appendChild(el("span", "grade", p.grade));
+    tr.appendChild(pro);
+
+    tr.appendChild(el("td", "form" + (p.hon ? " hon" : ""), assemble(parts)));
+
+    const asmCell = el("td", p.hon ? "hon" : null);
+    const asm = el("div", "asm");
+    asm.appendChild(asmNodes(parts));
+    asmCell.appendChild(asm);
+    tr.appendChild(asmCell);
+
+    body.appendChild(tr);
+  }
+
+  const note = $("#ergnote");
+  if (useErg){
+    note.hidden = false;
+    note.textContent = "";
+    note.append(curVerb.inf + " सकर्मक क्रिया हो, र यो काल पूर्ण छ — त्यसैले कर्तामा ");
+    note.appendChild(el("b", null, "ले"));
+    note.append(" लाग्छ। अकर्मक क्रियामा भने लाग्दैन।");
+  } else if (curPara.erg && !curVerb.tr){
+    note.hidden = false;
+    note.textContent = curVerb.inf + " अकर्मक क्रिया हो, त्यसैले यो कालमा पनि कर्तामा ले लाग्दैन।";
+  } else {
+    note.hidden = true;
+  }
+}
+
+function renderNonFinite(){
+  const box = $("#nonfinite");
+  box.textContent = "";
+  for (const f of NONFINITE){
+    const c = el("div", "nf");
+    c.appendChild(el("span", "n", f.n));
+    c.appendChild(el("span", "w", f.build(curVerb)));
+    c.appendChild(el("span", "g", f.g));
+    box.appendChild(c);
+  }
+}
+
+function renderHunu(){
+  const body = $("#hunu");
+  body.textContent = "";
+  for (const p of PERSONS){
+    const tr = el("tr");
+    const pro = el("td", "pro");
+    pro.append(p.pro);
+    pro.appendChild(el("span", "grade", p.grade));
+    tr.appendChild(pro);
+    for (const series of ["ho","chha","hunchha","thiyo","bhayo"]){
+      tr.appendChild(el("td", null, HUNU[series][p.k]));
+    }
+    body.appendChild(tr);
+  }
+}
+
+/* ── अभ्यास ── */
+let drill = null, streak = 0, right = 0, total = 0;
+
+const NEP_DIGITS = n => String(n).replace(/[0-9]/g, d => "०१२३४५६७८९"[d]);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+
+function newQuestion(){
+  const scope = $("#scope").value;
+  const para = scope === "cur" ? curPara : pick(PARADIGMS);
+  drill = { verb: pick(VERBS), para, person: pick(PERSONS), shown: false };
+  renderDrill();
+}
+
+function renderDrill(){
+  const box = $("#drillbody");
+  box.textContent = "";
+  if (!drill){ newQuestion(); return; }
+
+  const { verb, para, person } = drill;
+  box.appendChild(el("p", "prompt", para.na));
+
+  const cue = el("div", "cue");
+  cue.append(person.pro + " · " + verb.inf + " ");
+  cue.appendChild(el("span", "q", "→ ?"));
+  box.appendChild(cue);
+
+  const actions = el("div", "drill-actions");
+
+  if (!drill.shown){
+    const reveal = el("button", "btn", "उत्तर हेर्नुहोस्");
+    reveal.type = "button";
+    reveal.addEventListener("click", () => { drill.shown = true; renderDrill(); });
+    actions.appendChild(reveal);
+  } else {
+    const parts = para.parts(verb, person.k);
+    box.appendChild(el("div", "answer", assemble(parts)));
+    const asm = el("div", "asm drill-asm");
+    asm.appendChild(asmNodes(parts));
+    box.appendChild(asm);
+
+    const yes = el("button", "btn", "थाहा थियो");
+    yes.type = "button";
+    yes.addEventListener("click", () => { right++; total++; streak++; score(); newQuestion(); });
+
+    const no = el("button", "btn ghost", "थाहा थिएन");
+    no.type = "button";
+    no.addEventListener("click", () => { total++; streak = 0; score(); newQuestion(); });
+
+    actions.append(yes, no);
+  }
+  box.appendChild(actions);
+}
+
+function score(){
+  $("#streak").textContent = NEP_DIGITS(streak);
+  $("#score").textContent = NEP_DIGITS(right) + "/" + NEP_DIGITS(total);
+}
+
+function renderAll(){
+  renderSeed();
+  renderTabs();
+  renderRule();
+  renderParadigm();
+  renderNonFinite();
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   A Game of Life board where every live cell shows a देवनागरी अक्षर.
+
+   Layer 1 is untouched B3/S23 on a toroidal grid — gliders are the
+   canonical five-cell glider, blinkers blink, nothing about the rules
+   is special-cased.
+
+   Layer 2 runs a connected-component pass each generation. Every
+   component is an organism carrying a word; its cells render that
+   word's अक्षर in row-major reading order, so a glider stays legible
+   while it flies. When components merge, their words are join()ed —
+   so सन्धि fires at the seam — and the result is checked against every
+   valid form of the chosen root.
+   ══════════════════════════════════════════════════════════════════════ */
+
+const DEVA = '"Kohinoor Devanagari","Noto Sans Devanagari","Devanagari Sangam MN","Nirmala UI",sans-serif';
+const CALM = matchMedia("(prefers-reduced-motion: reduce)");
+const MARKS = /[ऀ-ः़ा-्॑-ॗॢॣ]/;
+
+/** Split into अक्षर — a consonant plus whatever marks and conjuncts hang off it. */
+function clusters(str){
+  const out = [];
+  let cur = "";
+  for (const ch of str){
+    if (!cur){ cur = ch; continue; }
+    if (MARKS.test(ch) || cur.endsWith(VIRAMA)){ cur += ch; continue; }
+    out.push(cur);
+    cur = ch;
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
+/* ── canonical Life patterns, in their textbook cell layouts ───────────── */
+const SHAPES = {
+  glider:  [[0,1],[1,2],[2,0],[2,1],[2,2]],
+  lwss:    [[0,0],[0,3],[1,4],[2,0],[2,4],[3,1],[3,2],[3,3],[3,4]],
+  blinker: [[0,0],[0,1],[0,2]],
+  toad:    [[0,1],[0,2],[0,3],[1,0],[1,1],[1,2]],
+  block:   [[0,0],[0,1],[1,0],[1,1]],
+  beehive: [[0,1],[0,2],[1,0],[1,3],[2,1],[2,2]],
+  rpent:   [[0,1],[0,2],[1,0],[1,1],[2,1]],
+};
+
+/** Rotate/flip a shape so gliders can be launched on any diagonal. */
+function orient(shape, turn, flip){
+  let pts = shape.map(([r, c]) => [r, c]);
+  for (let i = 0; i < turn; i++) pts = pts.map(([r, c]) => [c, -r]);
+  if (flip) pts = pts.map(([r, c]) => [r, -c]);
+  const minR = Math.min(...pts.map(p => p[0]));
+  const minC = Math.min(...pts.map(p => p[1]));
+  return pts.map(([r, c]) => [r - minR, c - minC]);
+}
+
+const board = {
+  cols: 0, rows: 0, px: 24,
+  alive: null, next: null,
+  comps: [], byCell: null,
+  gen: 0, playing: false, timer: null,
+  finds: [], lexicon: new Map(), payloads: [], maxWord: 24,
+  pairs: [], sinceLaunch: 0, launchEvery: 16, jammed: 0, launched: 0, candidates: 120, silent: false, pending: null, total: 0,
+};
+
+const boardEl = $("#board");
+const bctx = boardEl.getContext("2d");
+
+const idx = (r, c) => r * board.cols + c;
+const wrapR = r => (r + board.rows) % board.rows;
+const wrapC = c => (c + board.cols) % board.cols;
+
+/* ── layer 1: plain B3/S23, dead edges ─────────────────────────────────── */
+function lifeStep(){
+  const { cols, rows, alive, next } = board;
+  for (let r = 0; r < rows; r++){
+    const up = r > 0, dn = r < rows - 1;
+    const U = (r - 1) * cols, M = r * cols, D = (r + 1) * cols;
+    for (let c = 0; c < cols; c++){
+      const lf = c > 0, rt = c < cols - 1;
+      let n = 0;
+      if (up){ if (lf) n += alive[U + c - 1]; n += alive[U + c]; if (rt) n += alive[U + c + 1]; }
+      if (lf) n += alive[M + c - 1];
+      if (rt) n += alive[M + c + 1];
+      if (dn){ if (lf) n += alive[D + c - 1]; n += alive[D + c]; if (rt) n += alive[D + c + 1]; }
+      next[M + c] = alive[M + c] ? (n === 2 || n === 3 ? 1 : 0) : (n === 3 ? 1 : 0);
+    }
+  }
+  alive.set(next);
+}
+
+/* ── layer 2: organisms ────────────────────────────────────────────────── */
+/** 8-connected components of the live cells, each already in reading order. */
+function components(){
+  const { cols, rows, alive } = board;
+  const seen = new Uint8Array(cols * rows);
+  const out = [];
+  for (let r = 0; r < rows; r++){
+    for (let c = 0; c < cols; c++){
+      const start = idx(r, c);
+      if (!alive[start] || seen[start]) continue;
+      const cellsIn = [];
+      const stack = [start];
+      seen[start] = 1;
+      while (stack.length){
+        const cur = stack.pop();
+        cellsIn.push(cur);
+        const cr = (cur / cols) | 0, cc = cur % cols;
+        for (let dr = -1; dr <= 1; dr++){
+          const rr = cr + dr;
+          if (rr < 0 || rr >= rows) continue;
+          for (let dc = -1; dc <= 1; dc++){
+            if (!dr && !dc) continue;
+            const nc = cc + dc;
+            if (nc < 0 || nc >= cols) continue;
+            const n = rr * cols + nc;
+            if (alive[n] && !seen[n]){ seen[n] = 1; stack.push(n); }
+          }
+        }
+      }
+      cellsIn.sort((a, b) => a - b);          // row-major = reading order
+      out.push({ cells: cellsIn, word: "", valid: false, fresh: false });
+    }
+  }
+  return out;
+}
+
+/** Carry words across a generation: inherit on survival, join on merge. */
+function reseat(){
+  const prev = board.comps;
+  const prevOwner = new Map();
+  prev.forEach((comp, i) => comp.cells.forEach(cell => prevOwner.set(cell, i)));
+
+  const comps = components();
+  const byCell = new Map();
+
+  for (const comp of comps){
+    const parents = [];
+    for (const cell of comp.cells){
+      const owner = prevOwner.get(cell);
+      if (owner !== undefined && !parents.includes(owner)) parents.push(owner);
+    }
+
+    if (parents.length === 1){
+      comp.word = prev[parents[0]].word;
+      comp.valid = prev[parents[0]].valid;
+    } else if (parents.length > 1){
+      // merge: order the parents by where they sat, then join them in sequence
+      parents.sort((a, b) => prev[a].cells[0] - prev[b].cells[0]);
+      let merged = "", fed = 0;
+      for (const p of parents){
+        const w = prev[p].word;
+        if (!w) continue;
+        fed++;
+        merged = merged ? join(merged, w).s : w;
+        // past the longest real form it is no longer a candidate word, it is soup —
+        // and without this cap a blob that re-merges every generation grows without bound
+        if (merged.length > board.maxWord){ merged = ""; break; }
+      }
+      comp.word = merged;
+      // a find has to be assembled: two carriers must actually have met.
+      // merging with an empty blob just relocates a payload, it builds nothing.
+      comp.valid = fed >= 2 && board.lexicon.has(merged);
+      comp.fresh = comp.valid;
+      if (comp.valid) recordFind(merged, comp);
+    }
+    comp.cells.forEach(cell => byCell.set(cell, comp));
+  }
+
+  board.comps = comps;
+  board.byCell = byCell;
+}
+
+function recordFind(word, comp){
+  const info = board.lexicon.get(word);
+  board.finds.unshift({ word, info, gen: board.gen });
+  if (board.silent) return;
+  board.total++;
+  if (board.pending && word === board.pending.word) board.pending = null;
+  board.finds.length = Math.min(board.finds.length, 8);
+  $("#form").textContent = word;
+  showFind(board.finds[0]);
+  renderFinds();
+}
+
+/* ── drawing ───────────────────────────────────────────────────────────── */
+function paint(){
+  const { cols, rows, px, alive, byCell } = board;
+  bctx.clearRect(0, 0, boardEl.width, boardEl.height);
+
+  // dead-cell lattice, the way a Life board shows its grid
+  bctx.fillStyle = "rgba(90,240,140,.09)";
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++)
+      if (!alive[idx(r, c)]) bctx.fillRect(c * px + px / 2 - 1, r * px + px / 2 - 1, 2, 2);
+
+  bctx.font = `600 ${Math.round(px * 0.66)}px ${DEVA}`;
+  bctx.textAlign = "center";
+  bctx.textBaseline = "middle";
+
+  for (const comp of board.comps){
+    const glyphs = clusters(comp.word);
+    comp.cells.forEach((cell, i) => {
+      const r = (cell / cols) | 0, c = cell % cols;
+      const x = c * px + px / 2, y = r * px + px / 2;
+
+      if (comp.valid){
+        bctx.fillStyle = "rgba(255,181,61,.18)";
+        bctx.fillRect(c * px + 1, r * px + 1, px - 2, px - 2);
+      }
+      const glyph = glyphs[i];
+      if (glyph){
+        bctx.fillStyle = comp.valid ? "#FFD98A" : "#5AF08C";
+        bctx.fillText(glyph, x, y);
+      } else {
+        // a live cell the word does not reach — still alive, just mute
+        bctx.fillStyle = "rgba(90,240,140,.42)";
+        bctx.beginPath();
+        bctx.arc(x, y, Math.max(1.5, px * 0.1), 0, 7);
+        bctx.fill();
+      }
+    });
+  }
+}
+
+/* ── seeding ───────────────────────────────────────────────────────────── */
+function buildLexicon(v){
+  const lex = new Map();
+  const add = (word, info) => { if (word && !lex.has(word)) lex.set(word, info); };
+
+  for (const para of PARADIGMS){
+    for (const person of PERSONS){
+      const notes = [];
+      if (para.erg && v.tr) notes.push("ergative — subject takes ले");
+      if (person.hon) notes.push("built as infinitive + auxiliary");
+      if (para.verify) notes.push("these forms need checking");
+      add(assemble(para.parts(v, person.k)), {
+        tense: para.na, en: para.en, grade: person.en,
+        gloss: para.enNote, reg: person.reg,
+        who: para.erg && v.tr ? person.erg : person.pro,
+        detail: notes.join("  ·  "),
+      });
+    }
+  }
+  for (const f of NONFINITE)
+    add(f.build(v), { tense: f.n, en: f.g, grade: "non-finite", gloss: "", reg: "", who: "—", detail: "" });
+  add(v.inf, { tense: "क्रियार्थक नाम", en: "dictionary form", grade: "infinitive",
+               gloss: "", reg: "", who: v.gloss, detail: "" });
+  board.maxWord = Math.max(...[...lex.keys()].map(w => w.length)) + 2;
+  return lex;
+}
+
+/**
+ * Emergent collisions never spell Nepali — 4800 generations of free play
+ * produced 107 merges and no valid form, because the morpheme pool is
+ * almost entirely endings and spatial order ignores morphology. So each
+ * form is instead split in two and flown at itself: everything up to the
+ * last morpheme rides the head glider, the final morpheme rides the tail.
+ * The Life rules stay untouched; only the launch geometry is chosen.
+ */
+function buildPairs(v){
+  const out = [];
+  for (const para of PARADIGMS){
+    for (const person of PERSONS){
+      const parts = para.parts(v, person.k).filter(part => part.s);
+      if (parts.length < 2) continue;
+      let head = "";
+      for (let i = 0; i < parts.length - 1; i++)
+        head = head ? join(head, parts[i].s).s : parts[i].s;
+      const tail = parts[parts.length - 1].s;
+      const whole = join(head, tail).s;
+      if (board.lexicon.has(whole)) out.push({ head, tail, whole });
+    }
+  }
+  return out;
+}
+
+/** Every morpheme the paradigms actually use — the pieces worth colliding. */
+function buildPayloads(v){
+  const seen = new Set();
+  for (const para of PARADIGMS)
+    for (const person of PERSONS)
+      for (const part of para.parts(v, person.k))
+        if (part.s && part.s.trim()) seen.add(part.s.trim());
+  seen.add(v.stem);
+  seen.add(v.past);
+  return [...seen].sort((a, b) => clusters(a).length - clusters(b).length);
+}
+
+function stamp(shape, row, col, word){
+  const cellsIn = [];
+  for (const [dr, dc] of shape){
+    const r = row + dr, c = col + dc;
+    if (r < 0 || r >= board.rows || c < 0 || c >= board.cols) continue;
+    const cell = idx(r, c);
+    board.alive[cell] = 1;
+    cellsIn.push(cell);
+  }
+  if (!cellsIn.length) return;
+  cellsIn.sort((a, b) => a - b);
+  board.comps.push({ cells: cellsIn, word, valid: false, fresh: false });
+}
+
+/**
+ * Two canonical gliders on intersecting courses. The south-east glider and
+ * its mirror both fall one row per four generations, so they hold the same
+ * row while the gap between them closes — they arrive together.
+ */
+/**
+ * Collision geometries found by sweeping 486 placements against six
+ * different payload pairs, keeping only those that merge for all of them.
+ * Head glider starts at (row, meet - gap), tail at (row + dr, meet + gap + dc).
+ *
+ * A symmetric head-on collision does NOT work: two gliders meeting square
+ * annihilate into two blocks that come to rest two columns apart and never
+ * touch, so their components never merge and no word is ever assembled.
+ */
+const COLLISIONS = [
+  [5,3,3], [5,2,3], [5,0,3], [6,3,3], [6,2,3], [6,0,3],
+  [7,3,3], [7,2,3], [7,0,3], [8,3,3], [8,2,3], [8,0,3],
+  [9,3,3], [9,2,3], [9,0,3], [10,3,3], [10,2,3], [10,0,3],
+];
+
+/** Only the diagonal corridor the two gliders actually sweep must be empty. */
+function laneIsClear(row, meet, gap, dr, dc){
+  for (let k = 0; k <= gap + 2; k++){
+    for (const [r, c] of [[row + k, meet - gap + k], [row + dr + k, meet + gap + dc - k]]){
+      for (let a = -1; a <= 3; a++){
+        for (let bq = -1; bq <= 3; bq++){
+          const rr = r + a, cc = c + bq;
+          if (rr < 0 || rr >= board.rows || cc < 0 || cc >= board.cols) return false;
+          if (board.alive[rr * board.cols + cc]) return false;
+        }
+      }
+    }
+  }
+  return true;
+}
+
+function stampPair(pick, row, meet, gap, dr, dc){
+  stamp(orient(SHAPES.glider, 0, false), row, meet - gap, pick.head);
+  stamp(orient(SHAPES.glider, 0, true),  row + dr, meet + gap + dc, pick.tail);
+}
+
+/**
+ * Life is deterministic, so a candidate launch does not need to be guessed at —
+ * it can be played out. Copy the board, stamp the pair, run it forward, and see
+ * whether the intended form actually assembles against the debris and in-flight
+ * gliders that are really there. Only verified launches get committed.
+ *
+ * This is why a beam is unnecessary: there are no partial hypotheses to carry,
+ * every candidate resolves to a definite yes or no in one rollout.
+ */
+function rollout(pick, row, meet, gap, dr, dc, horizon){
+  const keepAlive = board.alive, keepComps = board.comps;
+  const keepFinds = board.finds, keepGen = board.gen;
+
+  board.alive = board.alive.slice();
+  board.comps = board.comps.slice();
+  board.finds = [];
+  board.silent = true;
+
+  stampPair(pick, row, meet, gap, dr, dc);
+  let ok = false;
+  for (let g = 0; g < horizon && !ok; g++){
+    lifeStep();
+    board.gen++;
+    reseat();
+    ok = board.finds.some(f => f.word === pick.whole);
+  }
+
+  board.silent = false;
+  board.alive = keepAlive; board.comps = keepComps;
+  board.finds = keepFinds; board.gen = keepGen;
+  return ok;
+}
+
+function launchPair(){
+  if (!board.pairs.length) return false;
+  // A rollout is only truthful about the board it was run against. Launching a
+  // second pair across a verified one in flight invalidates that verification,
+  // so wait for the pending collision to resolve before committing another.
+  if (board.pending && board.gen < board.pending.until) return false;
+
+  // COLLISIONS is ordered by gap, and short corridors need far less clear
+  // space — on a board thick with ash they are the only ones that still fit
+  for (let tries = 0; tries < board.candidates; tries++){
+    const bias = Math.min(COLLISIONS.length,
+                          6 + Math.floor((tries / board.candidates) * COLLISIONS.length));
+    const [gap, dr, dc] = COLLISIONS[Math.floor(Math.random() * bias)];
+    const row = Math.floor(Math.random() * board.rows);
+    const meet = Math.floor(Math.random() * board.cols);
+    if (!laneIsClear(row, meet, gap, dr, dc)) continue;
+
+    const pick = board.pairs[Math.floor(Math.random() * board.pairs.length)];
+    if (!rollout(pick, row, meet, gap, dr, dc, 4 * gap + 20)) continue;
+
+    stampPair(pick, row, meet, gap, dr, dc);
+    board.pending = { word: pick.whole, until: board.gen + 4 * gap + 22 };
+    board.sinceLaunch = 0;
+    board.jammed = 0;
+    board.launched++;
+    return true;
+  }
+  board.jammed++;
+  return false;
+}
+
+/** Scatter movers and anvils, each carrying a morpheme. */
+function seed(count){
+  const pool = board.payloads;
+  const kinds = ["glider", "glider", "glider", "lwss", "blinker", "toad", "block", "beehive"];
+  for (let i = 0; i < count; i++){
+    const kind = kinds[Math.floor(Math.random() * kinds.length)];
+    const shape = orient(SHAPES[kind], Math.floor(Math.random() * 4), Math.random() < 0.5);
+    const word = pool[Math.floor(Math.random() * pool.length)];
+    stamp(shape, Math.floor(Math.random() * board.rows), Math.floor(Math.random() * board.cols), word);
+  }
+  board.byCell = new Map();
+  board.comps.forEach(comp => comp.cells.forEach(cell => board.byCell.set(cell, comp)));
+}
+
+function layout(){
+  const wide = boardEl.parentElement.clientWidth || 900;
+  board.px = wide >= 760 ? 24 : 17;
+  board.cols = Math.max(20, Math.floor(wide / board.px));
+  board.rows = wide >= 760 ? 30 : 20;
+  boardEl.width = board.cols * board.px;
+  boardEl.height = board.rows * board.px;
+  boardEl.style.aspectRatio = `${boardEl.width} / ${boardEl.height}`;
+  board.alive = new Uint8Array(board.cols * board.rows);
+  board.next = new Uint8Array(board.cols * board.rows);
+}
+
+/* ── run loop ──────────────────────────────────────────────────────────── */
+function tick(){
+  lifeStep();
+  board.gen++;
+  reseat();
+  if (++board.sinceLaunch >= board.launchEvery) launchPair();
+  paint();
+  status();
+}
+
+function status(){
+  let pop = 0;
+  for (const v of board.alive) pop += v;
+  $("#counter").textContent =
+    `पुस्ता ${NEP_DIGITS(String(board.gen).padStart(3, "0"))}` +
+    ` · जीव ${NEP_DIGITS(String(pop).padStart(3, "0"))}` +
+    ` · जीवहरू ${NEP_DIGITS(String(board.comps.length).padStart(2, "0"))}` +
+    ` · भेटिए ${NEP_DIGITS(board.finds.length ? board.finds.length : 0)}`
+    + (board.jammed > 60 ? "  ·  खरानीले भरियो — सुरुबाट थिच्नुहोस्" : "");
+  $("#play").textContent = board.playing ? "रोक्नुहोस्" : "चलाउनुहोस्";
+}
+
+function showFind(find){
+  if (!find){
+    $("#enname").textContent = "कुनै रूप भेटिएको छैन";
+    $("#gradeline").textContent = "collide morphemes to assemble a real form";
+    $("#gloss").textContent = "";
+    $("#reg").textContent = "";
+    $("#detail").textContent = "";
+    $("#tense").textContent = "—";
+    $("#who").textContent = "";
+    return;
+  }
+  const i = find.info || {};
+  $("#enname").textContent = i.en || "";
+  $("#gradeline").textContent = i.grade || "";
+  $("#gloss").textContent = i.gloss || "";
+  $("#reg").textContent = i.reg || "";
+  $("#detail").textContent = i.detail || "";
+  $("#tense").textContent = find.word;
+  $("#who").textContent = i.who || "";
+}
+
+function renderFinds(){
+  const box = $("#finds");
+  box.textContent = "";
+  for (const f of board.finds){
+    const chip = el("span", "find");
+    chip.append(f.word);
+    chip.appendChild(el("i", null, "पुस्ता " + NEP_DIGITS(f.gen)));
+    box.appendChild(chip);
+  }
+}
+
+function halt(){ clearInterval(board.timer); board.timer = null; board.playing = false; }
+
+function play(){
+  board.playing = true;
+  clearInterval(board.timer);
+  board.timer = setInterval(tick, Number($("#speed").value));
+  status();
+}
+
+function reset(autoplay){
+  halt();
+  board.gen = 0;
+  board.finds = [];
+  board.jammed = 0;
+  board.launched = 0;
+  board.total = 0;
+  board.pending = null;
+  board.comps = [];
+  board.alive.fill(0);
+  board.lexicon = buildLexicon(curVerb);
+  board.payloads = buildPayloads(curVerb);
+  board.pairs = buildPairs(curVerb);
+  seed(3);
+  board.sinceLaunch = 0;
+  launchPair();
+  paint();
+  status();
+  showFind(null);
+  renderFinds();
+  if (autoplay && !CALM.matches) play();
+}
+
+$("#play").addEventListener("click", () => { board.playing ? (halt(), status()) : play(); });
+$("#step").addEventListener("click", () => { halt(); tick(); });
+$("#prev").addEventListener("click", () => { launchPair(); paint(); status(); });
+$("#reset").addEventListener("click", () => reset(false));
+$("#speed").addEventListener("change", () => { if (board.playing) play(); });
+
+addEventListener("keydown", e => {
+  if (e.target.matches("input, select, textarea")) return;
+  if (e.key === " "){ e.preventDefault(); board.playing ? (halt(), status()) : play(); }
+  else if (e.key === "ArrowRight"){ halt(); tick(); }
+});
+
+let resizeJob;
+addEventListener("resize", () => {
+  clearTimeout(resizeJob);
+  resizeJob = setTimeout(() => { layout(); reset(false); }, 200);
+});
+
+$("#refbtn").addEventListener("click", () => {
+  const panel = $("#reference"), opening = panel.hidden;
+  panel.hidden = !opening;
+  $("#refbtn").textContent = opening ? "लुकाउनुहोस्" : "व्याकरण";
+  $("#refbtn").setAttribute("aria-expanded", String(opening));
+  if (opening){
+    const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    panel.scrollIntoView({ behavior: calm ? "auto" : "smooth", block: "start" });
+  }
+});
+
+renderHunu();
+renderAll();
+layout();
+reset(false);
+$("#scope").addEventListener("change", newQuestion);
+newQuestion();
+score();
+</script>
 </body>
 </html>

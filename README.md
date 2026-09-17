@@ -4,7 +4,7 @@ Conway's Game of Life on a NumPy grid — seeded with Devanagari letterforms, an
 
 Type a word, and its letters become the initial colony. The shirorekha (the top bar) goes first, not last — a solid lit row is maximally overcrowded under B3/S23, and नमस्कार drops from 46 lit bar cells to 2 within two generations. What happens after that depends on the letter: bowls and stems collapse fast, the counters inside म settle into beehives, and क is the stubborn one — still churning after 400 generations. Words dissolve differently depending on how they're shaped.
 
-There is a browser version too, on the same rules but with a different question: [**नेपाली क्रिया रूपावली**](https://shreeya-dhakal.github.io/game-of-life-np/verbs/), where every live cell carries an अक्षर and colliding gliders assemble real Nepali verb forms.
+There is a browser version too, on the same rules but with a different question: [**नेपाली क्रिया रूपावली**](https://shreeya-dhakal.github.io/game-of-life-np/), where every live cell carries an अक्षर and colliding gliders assemble real Nepali verb forms.
 
 ## Install
 
@@ -63,5 +63,4 @@ pip install --force-reinstall --no-binary :all: pillow
 - [life.py](life.py) — the engine. Neighbour counts via eight `np.roll` shifts on a torus, or eight padded slices with dead edges. Tracks per-cell age and detects settling.
 - [devanagari.py](devanagari.py) — text rasterization, the age→glyph ramp, Devanagari numerals, and the pattern library.
 - [main.py](main.py) — CLI and terminal renderer.
-- [verbs/index.html](verbs/index.html) — the browser version: a second, independent Life engine where components carry morphemes, plus a Nepali conjugation reference and drill. No dependencies, no build step.
-- [index.html](index.html) — landing page for the [site](https://shreeya-dhakal.github.io/game-of-life-np/).
+- [index.html](index.html) — the browser version, and the [site](https://shreeya-dhakal.github.io/game-of-life-np/) itself: a second, independent Life engine where components carry morphemes, plus a Nepali conjugation reference and drill. No dependencies, no build step.
