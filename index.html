@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Conway's Game of Life and Devanagari — a terminal Life simulator seeded with Nepali letterforms, and a verb conjugation board where gliders carry morphemes.">
+<meta name="theme-color" content="#070A07">
+<title>game-of-life-np</title>
+<style>
+  :root{
+    --bg:#070A07;
+    --panel:#0B100C;
+    --sunk:#050705;
+    --phos:#5AF08C;
+    --mid:#5AC482;
+    --dim:#44A163;
+    --line:#215434;
+    --hot:#D8FFE4;
+    --amber:#FFB53D;
+
+    --f-body:"Kohinoor Devanagari","Noto Sans Devanagari","Devanagari Sangam MN","Nirmala UI","Mangal",system-ui,sans-serif;
+    --f-mono:ui-monospace,"SF Mono",Menlo,Consolas,"Courier New",monospace;
+  }
+
+  *{box-sizing:border-box}
+
+  body{
+    margin:0;
+    padding:0;
+    background:var(--bg);
+    color:var(--mid);
+    font-family:var(--f-mono);
+    font-size:14px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* faint scanline wash, the way the verbs board carries it */
+  body::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    background:repeating-linear-gradient(
+      to bottom,
+      rgba(90,240,140,.025) 0 1px,
+      transparent 1px 3px
+    );
+    z-index:1;
+  }
+
+  .wrap{
+    position:relative;
+    z-index:2;
+    max-width:860px;
+    margin:0 auto;
+    padding:clamp(32px,7vw,72px) 20px 56px;
+  }
+
+  header{
+    border-bottom:1px solid var(--line);
+    padding-bottom:22px;
+    margin-bottom:34px;
+  }
+
+  h1{
+    font-family:var(--f-mono);
+    font-size:clamp(20px,4.4vw,27px);
+    font-weight:600;
+    letter-spacing:.02em;
+    color:var(--phos);
+    margin:0 0 10px;
+  }
+
+  h1 .cursor{
+    display:inline-block;
+    width:.55em;
+    height:1.05em;
+    margin-left:.12em;
+    background:var(--phos);
+    vertical-align:-.16em;
+    animation:blink 1.2s steps(1) infinite;
+  }
+
+  @keyframes blink{50%{opacity:0}}
+  @media (prefers-reduced-motion:reduce){ h1 .cursor{animation:none} }
+
+  .lede{
+    margin:0;
+    max-width:62ch;
+    color:var(--dim);
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:18px;
+  }
+
+  @media (max-width:680px){
+    .grid{grid-template-columns:1fr}
+  }
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:3px;
+    padding:22px 20px 20px;
+    display:flex;
+    flex-direction:column;
+  }
+
+  .card h2{
+    margin:0 0 4px;
+    font-size:17px;
+    font-weight:600;
+    color:var(--hot);
+    font-family:var(--f-body);
+  }
+
+  .card h2 .en{
+    display:block;
+    font-family:var(--f-mono);
+    font-size:12px;
+    font-weight:400;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--dim);
+    margin-top:5px;
+  }
+
+  .card p{
+    margin:14px 0 0;
+    color:var(--mid);
+    flex:1;
+  }
+
+  .facts{
+    list-style:none;
+    margin:16px 0 0;
+    padding:0;
+    font-size:12.5px;
+    color:var(--dim);
+  }
+
+  .facts li{
+    padding:3px 0 3px 14px;
+    position:relative;
+  }
+
+  .facts li::before{
+    content:"·";
+    position:absolute;
+    left:2px;
+    color:var(--line);
+  }
+
+  pre{
+    background:var(--sunk);
+    border:1px solid var(--line);
+    border-radius:2px;
+    margin:16px 0 0;
+    padding:12px 13px;
+    overflow-x:auto;
+    font-size:12.5px;
+    color:var(--mid);
+    line-height:1.7;
+  }
+
+  pre .c{color:var(--dim)}
+
+  .go{
+    display:inline-block;
+    margin-top:18px;
+    align-self:flex-start;
+    padding:9px 17px;
+    border:1px solid var(--amber);
+    border-radius:2px;
+    color:var(--amber);
+    text-decoration:none;
+    font-size:13px;
+    letter-spacing:.04em;
+    transition:background .15s,color .15s;
+  }
+
+  .go:hover,.go:focus-visible{
+    background:var(--amber);
+    color:var(--bg);
+    outline:none;
+  }
+
+  footer{
+    margin-top:38px;
+    padding-top:20px;
+    border-top:1px solid var(--line);
+    font-size:12.5px;
+    color:var(--dim);
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px 20px;
+  }
+
+  a{color:var(--phos)}
+  a:hover{color:var(--hot)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <h1>game-of-life-np<span class="cursor"></span></h1>
+    <p class="lede">
+      Conway's Game of Life, twice, in Devanagari. One runs in the terminal on
+      letterforms rasterized from a word you type. The other runs in the browser,
+      where each live cell carries an अक्षर and colliding gliders assemble real
+      Nepali verb forms.
+    </p>
+  </header>
+
+  <div class="grid">
+
+    <section class="card">
+      <h2>
+        नेपाली क्रिया रूपावली
+        <span class="en">Verbs on a Life board</span>
+      </h2>
+      <p>
+        A conjugation reference wired to a B3/S23 board. Every component on the
+        grid is an organism carrying a morpheme; when two collide their words are
+        joined under Devanagari sandhi, and the result is checked against the
+        full paradigm of the chosen root.
+      </p>
+      <ul class="facts">
+        <li>24 verbs · 10 paradigms · 8 person and honorific grades</li>
+        <li>Forms derived from rules, not a hardcoded table</li>
+        <li>Includes a grammar reference and a drill mode</li>
+      </ul>
+      <a class="go" href="verbs/">Open the board →</a>
+    </section>
+
+    <section class="card">
+      <h2>
+        जीवन
+        <span class="en">Life in the terminal</span>
+      </h2>
+      <p>
+        Type a word and its letters become the initial colony. Bowls and stems
+        collapse quickly; the counters inside क and म tend to leave still lifes
+        behind. Words dissolve differently depending on how they are shaped.
+      </p>
+      <ul class="facts">
+        <li>Arbitrary rulestrings, toroidal or dead edges</li>
+        <li>Three render styles, including a Devanagari age ramp</li>
+        <li>Detects still lifes, oscillators and extinction</li>
+      </ul>
+<pre><span class="c">$</span> pip install -r requirements.txt
+<span class="c">$</span> python main.py --text नमस्कार
+<span class="c">$</span> python main.py --text कमल --style glyph</pre>
+    </section>
+
+  </div>
+
+  <footer>
+    <span><a href="https://github.com/shreeya-dhakal/game-of-life-np">Source on GitHub</a></span>
+    <span>Needs a Devanagari font installed</span>
+  </footer>
+
+</div>
+
+</body>
+</html>
