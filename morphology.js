@@ -460,6 +460,16 @@ function audit(v){
   };
 }
 
+/** Two finished forms do not combine. गरेको छ + गरेको छ is not a longer word,
+ *  it is two words sitting next to each other — and at 14 characters it slips
+ *  under any length cap, so it has to be refused on grammatical grounds rather
+ *  than on size. `isForm` is supplied by the caller, which owns the lexicon;
+ *  this layer never learns what is on the board. */
+function canCombine(a, b, isForm){
+  if (!a || !b) return true;
+  return !(isForm(a) && isForm(b));
+}
+
 /** Every form a verb has, as a Set — what the board checks a merge against. */
 function formSet(v){
   const s = new Set();
@@ -477,7 +487,7 @@ return {
   PERSONS, PARADIGMS, VERBS, HUNU, NONFINITE, CLASS_NAME, L_CHA, L_DA,
   CHA, PAST, HPAST, THI, PTCP,
   // generation
-  generate, allForms, nonFiniteForms, formSet,
+  generate, allForms, nonFiniteForms, formSet, canCombine,
   // validation
   paradigmCollisions, wellFormed, audit, LICENSED_SYNCRETISM,
 };

@@ -588,7 +588,7 @@
 const {
   join, assemble, cite, clusters,
   PERSONS, PARADIGMS, VERBS, HUNU, NONFINITE, CLASS_NAME,
-  allForms, nonFiniteForms, audit,
+  allForms, nonFiniteForms, audit, canCombine,
 } = Nepali;
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -847,6 +847,7 @@ const board = {
   gen: 0, playing: false, timer: null,
   finds: [], lexicon: new Map(), payloads: [], maxWord: 24,
   selected: null,
+  reapAfter: 14,
   pairs: [], sinceLaunch: 0, launchEvery: 16, jammed: 0, launched: 0, candidates: 120, silent: false, pending: null, total: 0,
 };
 
@@ -938,6 +939,8 @@ function reseat(){
       for (const p of parents){
         const w = prev[p].word;
         if (!w) continue;
+        // two finished forms are two words, not a longer one
+        if (!canCombine(merged, w, s => board.lexicon.has(s))){ merged = ""; break; }
         fed++;
         merged = merged ? join(merged, w).s : w;
         // past the longest real form it is no longer a candidate word, it is soup —
@@ -968,6 +971,50 @@ function recordFind(word, comp){
   $("#form").textContent = word;
   renderFinds();
   showFind(currentFind());
+}
+
+/* ── layer 3: reaping ──────────────────────────────────────────────────
+   A component that has stopped moving can never reach another component, so
+   it can never collide again — but it still blocks every launch corridor
+   that crosses it, and Life ash is stable, so it blocks them forever. Left
+   alone the board silently dies: measured, it stops producing finds around
+   generation 2300 and then cannot change at all, because every surviving
+   component is a still life.
+
+   Retiring settled debris is the one place the board overrules Conway. The
+   rules themselves are untouched — this runs between generations, on what
+   the rules have already finished with.
+   ────────────────────────────────────────────────────────────────────── */
+
+const stillAges = new Map();
+
+/** Where a component sits, to half-cell precision. A blinker's cells
+ *  alternate but its centre does not; a glider's centre translates — which
+ *  is exactly the distinction the reaper needs. */
+function centroidKey(comp){
+  let r = 0, c = 0;
+  for (const cell of comp.cells){ r += (cell / board.cols) | 0; c += cell % board.cols; }
+  const n = comp.cells.length;
+  return Math.round(r / n * 2) + ":" + Math.round(c / n * 2);
+}
+
+function reap(){
+  const seen = new Set();
+  const kept = [];
+  for (const comp of board.comps){
+    const key = centroidKey(comp);
+    seen.add(key);
+    const age = (stillAges.get(key) || 0) + 1;
+    stillAges.set(key, age);
+    if (age > board.reapAfter){
+      for (const cell of comp.cells){ board.alive[cell] = 0; board.byCell.delete(cell); }
+      stillAges.delete(key);
+    } else {
+      kept.push(comp);
+    }
+  }
+  board.comps = kept;
+  for (const key of [...stillAges.keys()]) if (!seen.has(key)) stillAges.delete(key);
 }
 
 /* ── drawing ───────────────────────────────────────────────────────────── */
@@ -1189,6 +1236,9 @@ function launchPair(){
     board.launched++;
     return true;
   }
+  // back off to the normal cadence; without this sinceLaunch never resets and
+  // a jammed board retries 120 placements on every single frame, forever
+  board.sinceLaunch = 0;
   board.jammed++;
   return false;
 }
@@ -1224,6 +1274,7 @@ function tick(){
   lifeStep();
   board.gen++;
   reseat();
+  reap();
   if (++board.sinceLaunch >= board.launchEvery) launchPair();
   paint();
   status();
@@ -1313,6 +1364,7 @@ function reset(autoplay){
   board.gen = 0;
   board.finds = [];
   board.selected = null;
+  stillAges.clear();
   board.jammed = 0;
   board.launched = 0;
   board.total = 0;

@@ -192,6 +192,38 @@ test("the whole corpus is clean — every verb, every bundle", () => {
   }
 });
 
+test("two finished forms refuse to combine", () => {
+  const lex = N.formSet("गर्नु");
+  const isForm = s => lex.has(s);
+  // the board was carrying गरेको छगरेको छ — under any length cap, still not a word
+  assert.equal(N.canCombine("गरेको छ", "गरेको छ", isForm), false);
+  assert.equal(N.canCombine("गर्छु", "गर्छु", isForm), false);
+  assert.equal(N.canCombine("गरेको छ", "गर्थेँ", isForm), false);
+  // but a partial word may still take its ending
+  assert.equal(N.canCombine("गरेको", "छ", isForm), true);
+  assert.equal(N.canCombine("गर्", "दै", isForm), true);
+  // and an empty operand is not a form, so it never blocks
+  assert.equal(N.canCombine("", "गर्छु", isForm), true);
+  assert.equal(N.canCombine("गर्छु", "", isForm), true);
+});
+
+test("every real form is reachable as head + tail", () => {
+  // the launcher splits a form at its last morpheme; canCombine must not
+  // refuse the very pairs the board is built to fly
+  const lex = N.formSet("गर्नु");
+  const isForm = s => lex.has(s);
+  for (const para of N.PARADIGMS){
+    for (const person of N.PERSONS){
+      const parts = para.parts(verb("गर्नु"), person.k).filter(p => p.s);
+      if (parts.length < 2) continue;
+      let head = "";
+      for (let i = 0; i < parts.length - 1; i++) head = head ? N.join(head, parts[i].s).s : parts[i].s;
+      const tail = parts[parts.length - 1].s;
+      assert.ok(N.canCombine(head, tail, isForm), `${para.id}/${person.k}: ${head} + ${tail} refused`);
+    }
+  }
+});
+
 /* ══════════════════════════════════════════════════════════════════
    5. Nepali-specific edge cases
    ══════════════════════════════════════════════════════════════════ */
