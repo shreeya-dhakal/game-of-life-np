@@ -116,8 +116,21 @@
     display:inline-flex;align-items:baseline;gap:.5em;
     border:1px solid var(--amber);color:var(--amber);
     background:rgba(255,181,61,.09);padding:2px 9px;font-size:1.05rem;
+    font-family:var(--f-body);line-height:inherit;cursor:pointer;
+    transition:background .12s,color .12s;
   }
+  .find:hover{background:rgba(255,181,61,.22)}
+  .find:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+  /* the one the readout is describing */
+  .find.is-current{box-shadow:inset 0 0 0 1px var(--amber)}
+  /* pinned by a click, so incoming finds no longer steal the readout */
+  .find[aria-pressed="true"]{background:var(--amber);color:var(--bg);border-color:var(--amber)}
+  .find[aria-pressed="true"] i{color:rgba(7,10,7,.66)}
   .find i{font-style:normal;font-family:var(--f-mono);font-size:.6rem;letter-spacing:.1em;color:var(--dim)}
+  .findhint{
+    display:block;font-family:var(--f-mono);font-size:.62rem;letter-spacing:.09em;
+    color:var(--dim);text-align:center;margin-top:5px;min-height:1em;
+  }
   /* the word stays in the DOM for screen readers even though tiles draw it */
   .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
@@ -361,6 +374,7 @@
   <div class="screen">
     <canvas id="board" aria-hidden="true"></canvas>
     <div class="finds" id="finds"></div>
+    <span class="findhint" id="findhint"></span>
     <div class="sr" id="form" aria-live="polite"></div>
   </div>
   <div class="readout">
@@ -561,267 +575,21 @@
 
 </div>
 
+<script src="morphology.js"></script>
 <script>
 "use strict";
-
-/* ══════════════════════════════════════════════════════════════════════
-   देवनागरी सन्धि — orthographic joining.
-   Suffixes are written in their abstract form (एँ, ्यौं, इस्). This decides
-   how each one is actually spelled once it lands on a given stem:
-     गर् + एँ  → गरेँ   (the halanta drops, the vowel becomes a matra)
-     खा  + एँ  → खाएँ   (after a vowel it keeps its independent letter)
-     ग   + एँ  → गएँ    (inherent अ is a vowel too, so nothing fuses)
-   ══════════════════════════════════════════════════════════════════════ */
-const VIRAMA = "्";
-const MATRA = { "अ":"", "आ":"ा", "इ":"ि", "ई":"ी", "उ":"ु", "ऊ":"ू", "ए":"े", "ऐ":"ै", "ओ":"ो", "औ":"ौ" };
-const COMBINING_RE = /[ऺ-ॏ॑-ॗॢॣ़]/;
-
-/** Join a suffix onto a base. Returns the spelled result and where the suffix begins. */
-function join(base, suffix){
-  if (!base) return { s: suffix, cut: 0 };
-  if (!suffix) return { s: base, cut: base.length };
-  const first = suffix[0];
-
-  // Only a halanta base fuses with a following vowel. A base ending in a bare
-  // consonant still carries its inherent अ, so the vowel keeps its independent
-  // letter form — which is why the suppletive past stem ग- gives गएँ, not गेँ.
-  if (base.endsWith(VIRAMA) && first in MATRA){
-    const stripped = base.slice(0, -1);
-    return { s: stripped + MATRA[first] + suffix.slice(1), cut: stripped.length };
-  }
-  if (first === VIRAMA && !base.endsWith(VIRAMA)){
-    return { s: base + suffix.slice(1), cut: base.length };
-  }
-  return { s: base + suffix, cut: base.length };
-}
-
-/** Assemble morpheme parts into a finished word. */
-function assemble(parts){
-  let word = "";
-  for (const p of parts){ if (p.s) word = join(word, p.s).s; }
-  return word;
-}
-
-/** Combining marks get a dotted circle, the way grammar books cite them. */
-function cite(s){
-  if (!s) return "∅";
-  return COMBINING_RE.test(s[0]) ? "◌" + s : s;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   PARADIGMS — every inflected form on this page comes from here.
-   To correct a form, correct the rule; the whole lexicon follows.
-   ══════════════════════════════════════════════════════════════════════ */
-
-const PERSONS = [
-  { k:"ma", en:"1st person · singular", reg:"",    pro:"म",            erg:"मैले",           grade:"प्रथम पुरुष" },
-  { k:"hami", en:"1st person · plural", reg:"",  pro:"हामी(हरू)",     erg:"हामी(हरू)ले",     grade:"प्रथम बहुवचन" },
-  { k:"ta", en:"2nd person · low grade", reg:"intimate — for children and close equals; rude to an adult you don't know well",    pro:"तँ",            erg:"तैंले",           grade:"द्वितीय · निम्न" },
-  { k:"timi", en:"2nd person · mid grade", reg:"familiar — friends, juniors, younger relatives",  pro:"तिमी(हरू)",     erg:"तिमी(हरू)ले",     grade:"द्वितीय · मध्यम" },
-  { k:"tapai", en:"2nd person · high grade", reg:"polite — elders, strangers, anyone senior to you", pro:"तपाईं(हरू)",    erg:"तपाईं(हरू)ले",    grade:"द्वितीय · आदर", hon:true },
-  { k:"u", en:"3rd person · low grade", reg:"children, animals, objects; blunt for an adult",     pro:"ऊ / त्यो",      erg:"उसले / त्यसले",   grade:"तृतीय · निम्न" },
-  { k:"uni", en:"3rd person · mid grade", reg:"familiar, and the plural for low and mid alike",   pro:"उनी / उनीहरू",  erg:"उनले / उनीहरूले", grade:"तृतीय · मध्यम" },
-  { k:"uha", en:"3rd person · high grade", reg:"respectful — elders, guests, people spoken of politely",   pro:"उहाँ / वहाँ",   erg:"उहाँले",          grade:"तृतीय · आदर", hon:true },
-];
-
-// छ-series endings, shared by habitual present, continuous, perfect and future.
-const CHA  = { ma:"छु", hami:"छौं", ta:"छस्", timi:"छौ", u:"छ", uni:"छन्" };
-// Past endings, shared by simple past and habitual past. One set, both spellings.
-const PAST = { ma:"एँ", hami:"यौं", ta:"इस्", timi:"यौ", u:"यो", uni:"ए" };
-// अभ्यस्त भूत: the -थ- marker fuses with the ending, so it is one morph here.
-const HPAST = { ma:"थेँ", hami:"थ्यौं", ta:"थिस्", timi:"थ्यौ", u:"थ्यो", uni:"थे" };
-// थियो-series, for the past compound tenses.
-const THI  = { ma:"थिएँ", hami:"थियौं", ta:"थिइस्", timi:"थियौ", u:"थियो", uni:"थिए" };
-// -एको participle: plural subjects take -एका.
-const PTCP = { ma:"एको", hami:"एका", ta:"एको", timi:"एको", u:"एको", uni:"एका" };
-
-// The linker before छ / थ, and the linker before the -द converb. They differ
-// for स्वरान्त stems, which is the single most irregular thing in the system.
-const L_CHA = { C:"",  V:"न्", U:"ँ" };
-const L_DA  = { C:"",  V:"ँ",  U:"ँ" };
-
-const st  = v => ({ t:"stem", s:v.stem });
-const pst = v => ({ t:"stem", s:v.past });
-const inf = v => ({ t:"stem", s:v.inf });
-
-const PARADIGMS = [
-  {
-    id:"habpres", short:"वर्तमान", na:"अभ्यस्त वर्तमान", en:"habitual present", enNote:"regular action, profession, general truth",
-    note:"नियमित काम, पेशा, सामान्य सत्य।", ex:"म हरेक बिहान चिया खान्छु।",
-    rule:{ C:"धातु + छु", V:"धातु + न् + छु", U:"धातु + ◌ँ + छु" },
-    parts(v,k){
-      return PERSONS.find(p=>p.k===k).hon
-        ? [inf(v), { t:"aux", s:"हुन्छ" }]
-        : [st(v), { t:"link", s:L_CHA[v.cls] }, { t:"end", s:CHA[k] }];
-    }
-  },
-  {
-    id:"prescont", short:"निरन्तर", na:"वर्तमान निरन्तर", en:"present continuous", enNote:"happening right now, as you speak",
-    note:"बोल्दै गर्दा भइरहेको काम।", ex:"म अहिले भात खाँदैछु।",
-    rule:{ C:"धातु + दै + छु", V:"धातु + ◌ँ + दै + छु", U:"धातु + ◌ँ + दै + छु" },
-    parts(v,k){
-      const base = [st(v), { t:"link", s:L_DA[v.cls] }, { t:"end", s:"दै" }];
-      return PERSONS.find(p=>p.k===k).hon
-        ? base.concat({ t:"aux", s:" हुनुहुन्छ" })
-        : base.concat({ t:"aux", s:CHA[k] });
-    }
-  },
-  {
-    id:"presperf", short:"पूर्ण", na:"वर्तमान पूर्ण", en:"present perfect", enNote:"done already, and still relevant now",
-    note:"भइसकेको, तर अहिलेसम्म असर रहेको काम।", ex:"मैले त्यो किताब पढेको छु।",
-    erg:true,
-    rule:{ C:"भूत धातु + एको + छु", V:"भूत धातु + एको + छु", U:"उ हटेको धातु + एको + छु" },
-    parts(v,k){
-      return PERSONS.find(p=>p.k===k).hon
-        ? [inf(v), { t:"aux", s:"भएको छ" }]
-        : [pst(v), { t:"end", s:PTCP[k] }, { t:"aux", s:" " + CHA[k] }];
-    }
-  },
-  {
-    id:"past", short:"भूत", na:"सामान्य भूत", en:"simple past", enNote:"completed, usually at a stated time",
-    note:"सकिएको काम, तोकिएको समय।", ex:"मैले हिजो चिठी लेखेँ।",
-    erg:true,
-    rule:{ C:"धातु + एँ → गरेँ", V:"धातु + एँ → खाएँ", U:"उ हट्छ → आएँ" },
-    parts(v,k){
-      return PERSONS.find(p=>p.k===k).hon
-        ? [inf(v), { t:"aux", s:"भयो" }]
-        : [pst(v), { t:"end", s:PAST[k] }];
-    }
-  },
-  {
-    id:"habpast", short:"अभ्यस्त भूत", na:"अभ्यस्त भूत", en:"habitual past", enNote:"used to do it regularly — but not any more",
-    note:"पहिले नियमित गरिने काम — अब गरिँदैन।", ex:"म बर्सेनि पोखरा जान्थेँ।",
-    rule:{ C:"धातु + थेँ", V:"धातु + न् + थेँ", U:"धातु + ◌ँ + थेँ" },
-    parts(v,k){
-      return PERSONS.find(p=>p.k===k).hon
-        ? [inf(v), { t:"aux", s:"हुन्थ्यो" }]
-        : [st(v), { t:"link", s:L_CHA[v.cls] }, { t:"end", s:HPAST[k] }];
-    }
-  },
-  {
-    id:"pastcont", short:"भूत निरन्तर", na:"भूत निरन्तर", en:"past continuous", enNote:"was in progress at some moment in the past",
-    note:"भूतमा कुनै बेला भइरहेको काम।", ex:"म खाना खाँदै थिएँ।",
-    rule:{ C:"धातु + दै + थिएँ", V:"धातु + ◌ँ + दै + थिएँ", U:"धातु + ◌ँ + दै + थिएँ" },
-    parts(v,k){
-      const base = [st(v), { t:"link", s:L_DA[v.cls] }, { t:"end", s:"दै" }];
-      return PERSONS.find(p=>p.k===k).hon
-        ? base.concat({ t:"aux", s:" हुनुहुन्थ्यो" })
-        : base.concat({ t:"aux", s:" " + THI[k] });
-    }
-  },
-  {
-    id:"pastperf", short:"भूत पूर्ण", na:"भूत पूर्ण", en:"past perfect", enNote:"finished before some other past event",
-    note:"अर्को भूत घटनाभन्दा अघि सकिएको काम।", ex:"ऊ आउनुअघि मैले खाना पकाएको थिएँ।",
-    erg:true,
-    rule:{ C:"भूत धातु + एको + थिएँ", V:"भूत धातु + एको + थिएँ", U:"उ हटेको धातु + एको + थिएँ" },
-    parts(v,k){
-      return PERSONS.find(p=>p.k===k).hon
-        ? [inf(v), { t:"aux", s:"भएको थियो" }]
-        : [pst(v), { t:"end", s:PTCP[k] }, { t:"aux", s:" " + THI[k] }];
-    }
-  },
-  {
-    id:"future", short:"भविष्यत्", na:"सामान्य भविष्यत्", en:"simple future", enNote:"mostly written; speech usually uses the habitual present",
-    note:"लेख्य भाषामा बढी। बोलीमा प्रायः अभ्यस्त वर्तमानले नै काम चलाउँछ।", ex:"म भोलि काठमाडौं जानेछु।",
-    rule:{ C:"धातु + ने + छु", V:"धातु + ने + छु", U:"धातु + ने + छु" },
-    parts(v,k){
-      return PERSONS.find(p=>p.k===k).hon
-        ? [inf(v), { t:"aux", s:"हुनेछ" }]
-        : [st(v), { t:"end", s:"ने" }, { t:"end", s:CHA[k] }];
-    }
-  },
-  {
-    id:"prob", short:"सम्भावना", na:"सम्भावना", en:"probable", enNote:"guess or likelihood — might, probably will",
-    note:"हुन सक्छ, होला भन्ने अनुमान।", ex:"ऊ भोलि आउला।",
-    verify:true,
-    rule:{ C:"धातु + ला", V:"धातु + ला", U:"धातु + ◌ँ + ला" },
-    parts(v,k){
-      if (PERSONS.find(p=>p.k===k).hon) return [inf(v), { t:"aux", s:"होला" }];
-      if (k === "ma") return [st(v), { t:"end", s:{ C:"उँला", V:"उँला", U:"ँला" }[v.cls] }];
-      if (k === "hami") return v.cls === "U"
-        ? [pst(v), { t:"end", s:"औंला" }]
-        : [st(v), { t:"end", s:"औंला" }];
-      const tail = { ta:"लास्", timi:"लौ", u:"ला", uni:"लान्" }[k];
-      return [st(v), { t:"link", s:v.cls === "U" ? "ँ" : "" }, { t:"end", s:tail }];
-    }
-  },
-  {
-    id:"imp", short:"आज्ञा", na:"आज्ञा र इच्छा", en:"imperative & optative", enNote:"commands, requests, and “let's …”",
-    note:"आदेश, अनुरोध, र “गरौं” भन्ने प्रस्ताव।", ex:"कृपया यता आउनुहोस्।",
-    rule:{ C:"तिमी → धातु + अ", V:"तिमी → धातु + ऊ", U:"तिमी → उ हट्छ + ऊ" },
-    parts(v,k){
-      if (PERSONS.find(p=>p.k===k).hon) return [inf(v), { t:"aux", s:"होस्" }];
-      const over = v.imp && v.imp[k];
-      if (over) return [{ t:"stem", s:over }];
-      const base = v.cls === "U" ? v.past : v.stem;
-      if (k === "ta") return [{ t:"stem", s:base }];
-      const tail = { ma:"ऊँ", hami:"औं", timi:(v.cls === "C" ? "अ" : "ऊ"), u:"ओस्", uni:"ऊन्" }[k];
-      return [{ t:"stem", s:base }, { t:"end", s:tail }];
-    }
-  },
-];
-
-/* ── the lexicon ── */
-const V = (inf, stem, cls, gloss, tr, extra) =>
-  Object.assign({ inf, stem, cls, gloss, tr }, extra || {});
-
-const VERBS = [
-  V("गर्नु","गर्","C","to do",true),
-  V("भन्नु","भन्","C","to say",true),
-  V("हेर्नु","हेर्","C","to look",true),
-  V("पढ्नु","पढ्","C","to read",true),
-  V("लेख्नु","लेख्","C","to write",true),
-  V("सुन्नु","सुन्","C","to hear",true),
-  V("बुझ्नु","बुझ्","C","to understand",true),
-  V("सिक्नु","सिक्","C","to learn",true),
-  V("देख्नु","देख्","C","to see",true),
-  V("किन्नु","किन्","C","to buy",true),
-  V("राख्नु","राख्","C","to keep",true),
-  V("बस्नु","बस्","C","to sit, live",false),
-  V("सुत्नु","सुत्","C","to sleep",false),
-  V("हिँड्नु","हिँड्","C","to walk",false),
-
-  V("खानु","खा","V","to eat",true),
-  V("जानु","जा","V","to go",false,{ past:"ग", irr:"भूत धातु ग" }),
-  V("दिनु","दि","V","to give",true,{ imp:{ ta:"दे", timi:"देऊ" } }),
-  V("लिनु","लि","V","to take",true,{ imp:{ ta:"ले", timi:"लेऊ" } }),
-
-  V("आउनु","आउ","U","to come",false,{ imp:{ ta:"आइज" } }),
-  V("पाउनु","पाउ","U","to get",true),
-  V("गाउनु","गाउ","U","to sing",true),
-  V("ल्याउनु","ल्याउ","U","to bring",true),
-  V("पिउनु","पिउ","U","to drink",true),
-  V("नुहाउनु","नुहाउ","U","to bathe",false),
-];
-
-// उ-अन्त धातुको भूत रूपमा अन्तिम उ हट्छ: आउ → आ, पिउ → पि
-for (const v of VERBS){
-  if (!v.past) v.past = v.cls === "U" ? v.stem.replace(/उ$/, "") : v.stem;
-}
-
-const CLASS_NAME = { C:"व्यञ्जनान्त", V:"स्वरान्त", U:"उ-अन्त" };
-
-/* ── हुनु: suppletive, so it is written out rather than derived ── */
-const HUNU = {
-  ho:      { ma:"हुँ",  hami:"हौं",   ta:"होस्",  timi:"हौ",   tapai:"हुनुहुन्छ",    u:"हो",   uni:"हुन्",   uha:"हुनुहुन्छ" },
-  chha:    { ma:"छु",   hami:"छौं",   ta:"छस्",   timi:"छौ",   tapai:"हुनुहुन्छ",    u:"छ",    uni:"छन्",    uha:"हुनुहुन्छ" },
-  hunchha: { ma:"हुन्छु", hami:"हुन्छौं", ta:"हुन्छस्", timi:"हुन्छौ", tapai:"हुनुहुन्छ",    u:"हुन्छ",  uni:"हुन्छन्",  uha:"हुनुहुन्छ" },
-  thiyo:   { ma:"थिएँ", hami:"थियौं", ta:"थिइस्", timi:"थियौ", tapai:"हुनुहुन्थ्यो", u:"थियो", uni:"थिए",    uha:"हुनुहुन्थ्यो" },
-  bhayo:   { ma:"भएँ",  hami:"भयौं",  ta:"भइस्",  timi:"भयौ",  tapai:"हुनुभयो",     u:"भयो",  uni:"भए",     uha:"हुनुभयो" },
-};
-
-/* ── non-finite forms ── */
-const NONFINITE = [
-  { n:"क्रियार्थक नाम", g:"dictionary form",       build:v => v.inf },
-  { n:"उद्देश्यवाचक",   g:"in order to …",          build:v => join(v.stem, "न").s },
-  { n:"भविष्यवाचक",    g:"the one that will …",     build:v => join(v.stem, "ने").s },
-  { n:"पूर्णकालिक",     g:"having …-ed",            build:v => join(v.past, "एको").s },
-  { n:"पूर्वकालिक",     g:"…-ing, then",            build:v => join(v.past, "एर").s },
-  { n:"क्रियाविशेषण",   g:"by …-ing",               build:v => join(v.past, "ई").s },
-  { n:"अपूर्णकालिक",    g:"while …-ing",            build:v => join(join(v.stem, L_DA[v.cls]).s, "दै").s },
-  { n:"समयवाचक",       g:"when …-ing",             build:v => join(join(v.stem, L_DA[v.cls]).s, "दा").s },
-  { n:"सर्तवाचक",      g:"if …",                   build:v => join(v.past, "ए").s + " भने" },
-];
+/* ── the linguistic layer lives in morphology.js ───────────────────────
+   Everything about Nepali — stems, endings, linkers, sandhi, paradigms,
+   validation — is behind this line. The board below knows exactly three
+   things: how to combine two morphemes, how to split a word into अक्षर
+   so it can be drawn, and how to ask whether a string is a real form.
+   It never learns why any of those answers are what they are.
+   ─────────────────────────────────────────────────────────────────── */
+const {
+  join, assemble, cite, clusters,
+  PERSONS, PARADIGMS, VERBS, HUNU, NONFINITE, CLASS_NAME,
+  allForms, nonFiniteForms, audit, canCombine,
+} = Nepali;
 
 /* ══════════════════════════════════════════════════════════════════════
    रेन्डर
@@ -1051,22 +819,6 @@ function renderAll(){
 
 const DEVA = '"Kohinoor Devanagari","Noto Sans Devanagari","Devanagari Sangam MN","Nirmala UI",sans-serif';
 const CALM = matchMedia("(prefers-reduced-motion: reduce)");
-const MARKS = /[ऀ-ः़ा-्॑-ॗॢॣ]/;
-
-/** Split into अक्षर — a consonant plus whatever marks and conjuncts hang off it. */
-function clusters(str){
-  const out = [];
-  let cur = "";
-  for (const ch of str){
-    if (!cur){ cur = ch; continue; }
-    if (MARKS.test(ch) || cur.endsWith(VIRAMA)){ cur += ch; continue; }
-    out.push(cur);
-    cur = ch;
-  }
-  if (cur) out.push(cur);
-  return out;
-}
-
 /* ── canonical Life patterns, in their textbook cell layouts ───────────── */
 const SHAPES = {
   glider:  [[0,1],[1,2],[2,0],[2,1],[2,2]],
@@ -1094,6 +846,8 @@ const board = {
   comps: [], byCell: null,
   gen: 0, playing: false, timer: null,
   finds: [], lexicon: new Map(), payloads: [], maxWord: 24,
+  selected: null,
+  reapAfter: 14,
   pairs: [], sinceLaunch: 0, launchEvery: 16, jammed: 0, launched: 0, candidates: 120, silent: false, pending: null, total: 0,
 };
 
@@ -1185,6 +939,8 @@ function reseat(){
       for (const p of parents){
         const w = prev[p].word;
         if (!w) continue;
+        // two finished forms are two words, not a longer one
+        if (!canCombine(merged, w, s => board.lexicon.has(s))){ merged = ""; break; }
         fed++;
         merged = merged ? join(merged, w).s : w;
         // past the longest real form it is no longer a candidate word, it is soup —
@@ -1213,8 +969,52 @@ function recordFind(word, comp){
   if (board.pending && word === board.pending.word) board.pending = null;
   board.finds.length = Math.min(board.finds.length, 8);
   $("#form").textContent = word;
-  showFind(board.finds[0]);
   renderFinds();
+  showFind(currentFind());
+}
+
+/* ── layer 3: reaping ──────────────────────────────────────────────────
+   A component that has stopped moving can never reach another component, so
+   it can never collide again — but it still blocks every launch corridor
+   that crosses it, and Life ash is stable, so it blocks them forever. Left
+   alone the board silently dies: measured, it stops producing finds around
+   generation 2300 and then cannot change at all, because every surviving
+   component is a still life.
+
+   Retiring settled debris is the one place the board overrules Conway. The
+   rules themselves are untouched — this runs between generations, on what
+   the rules have already finished with.
+   ────────────────────────────────────────────────────────────────────── */
+
+const stillAges = new Map();
+
+/** Where a component sits, to half-cell precision. A blinker's cells
+ *  alternate but its centre does not; a glider's centre translates — which
+ *  is exactly the distinction the reaper needs. */
+function centroidKey(comp){
+  let r = 0, c = 0;
+  for (const cell of comp.cells){ r += (cell / board.cols) | 0; c += cell % board.cols; }
+  const n = comp.cells.length;
+  return Math.round(r / n * 2) + ":" + Math.round(c / n * 2);
+}
+
+function reap(){
+  const seen = new Set();
+  const kept = [];
+  for (const comp of board.comps){
+    const key = centroidKey(comp);
+    seen.add(key);
+    const age = (stillAges.get(key) || 0) + 1;
+    stillAges.set(key, age);
+    if (age > board.reapAfter){
+      for (const cell of comp.cells){ board.alive[cell] = 0; board.byCell.delete(cell); }
+      stillAges.delete(key);
+    } else {
+      kept.push(comp);
+    }
+  }
+  board.comps = kept;
+  for (const key of [...stillAges.keys()]) if (!seen.has(key)) stillAges.delete(key);
 }
 
 /* ── drawing ───────────────────────────────────────────────────────────── */
@@ -1436,6 +1236,9 @@ function launchPair(){
     board.launched++;
     return true;
   }
+  // back off to the normal cadence; without this sinceLaunch never resets and
+  // a jammed board retries 120 placements on every single frame, forever
+  board.sinceLaunch = 0;
   board.jammed++;
   return false;
 }
@@ -1471,6 +1274,7 @@ function tick(){
   lifeStep();
   board.gen++;
   reseat();
+  reap();
   if (++board.sinceLaunch >= board.launchEvery) launchPair();
   paint();
   status();
@@ -1509,15 +1313,41 @@ function showFind(find){
   $("#who").textContent = i.who || "";
 }
 
+/** The find the readout is describing: whichever one was clicked, or the
+ *  newest if nothing is pinned. A pinned find that has since scrolled off
+ *  the list quietly releases the pin. */
+function currentFind(){
+  if (board.selected && board.finds.includes(board.selected)) return board.selected;
+  board.selected = null;
+  return board.finds[0] || null;
+}
+
+/** Click a chip to pin it; click the pinned one again to follow the newest. */
+function selectFind(f){
+  board.selected = board.selected === f ? null : f;
+  renderFinds();
+  showFind(currentFind());
+}
+
 function renderFinds(){
   const box = $("#finds");
   box.textContent = "";
+  const active = currentFind();
   for (const f of board.finds){
-    const chip = el("span", "find");
+    const chip = el("button", "find");
+    chip.type = "button";
     chip.append(f.word);
     chip.appendChild(el("i", null, "पुस्ता " + NEP_DIGITS(f.gen)));
+    chip.classList.toggle("is-current", f === active);
+    chip.setAttribute("aria-pressed", String(board.selected === f));
+    chip.title = f.word + " — " + ((f.info && f.info.en) || "");
+    chip.addEventListener("click", () => selectFind(f));
     box.appendChild(chip);
   }
+  $("#findhint").textContent =
+    !board.finds.length ? ""
+    : board.selected    ? "पिन गरिएको — फेरि थिच्नुहोस् छोड्न"
+                        : "कुनै पनि रूपमा थिच्नुहोस्";
 }
 
 function halt(){ clearInterval(board.timer); board.timer = null; board.playing = false; }
@@ -1533,6 +1363,8 @@ function reset(autoplay){
   halt();
   board.gen = 0;
   board.finds = [];
+  board.selected = null;
+  stillAges.clear();
   board.jammed = 0;
   board.launched = 0;
   board.total = 0;
@@ -1559,7 +1391,7 @@ $("#reset").addEventListener("click", () => reset(false));
 $("#speed").addEventListener("change", () => { if (board.playing) play(); });
 
 addEventListener("keydown", e => {
-  if (e.target.matches("input, select, textarea")) return;
+  if (e.target.matches("input, select, textarea, button")) return;
   if (e.key === " "){ e.preventDefault(); board.playing ? (halt(), status()) : play(); }
   else if (e.key === "ArrowRight"){ halt(); tick(); }
 });

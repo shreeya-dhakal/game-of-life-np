@@ -47,6 +47,16 @@ In colour, cell age runs from white-hot newborns down to indigo for cells that h
 
 The run stops on its own when the board goes still, starts oscillating, or dies out, and says which in the status line: `स्थिर` (still), `दोहोरियो — अवधि २` (period-2 oscillation), `निर्वाण — सबै मरे` (extinct).
 
+## Tests
+
+```sh
+node --test
+```
+
+Covers the sandhi rules, forms cross-checked against published tables, and two
+invariants that hold for every verb in the lexicon: no paradigm may lose a
+person distinction, and no generated form may be orthographically impossible.
+
 ## A note on text shaping
 
 Seed text is rasterized with Pillow. If Pillow was built without [libraqm](https://github.com/HOST-Oman/libraqm), it has no complex-script shaping: standalone consonants (`कखग`, `कमल`, `नमन`) render perfectly, but matras and conjuncts (the `ी` in `जीवन`, the `स्ते` in `नमस्ते`) are laid out as separate glyphs rather than being properly composed. Still readable, just not correctly typeset.
@@ -64,3 +74,5 @@ pip install --force-reinstall --no-binary :all: pillow
 - [devanagari.py](devanagari.py) — text rasterization, the age→glyph ramp, Devanagari numerals, and the pattern library.
 - [main.py](main.py) — CLI and terminal renderer.
 - [index.html](index.html) — the browser version, and the [site](https://shreeya-dhakal.github.io/game-of-life-np/) itself: a second, independent Life engine where components carry morphemes, plus a Nepali conjugation reference and drill. No dependencies, no build step.
+- [morphology.js](morphology.js) — the linguistic layer, kept separate from the board. Ordered morphophonological rules, the paradigm tables, and the validation that checks their output. The Life engine knows only how to combine two morphemes, how to split a word into अक्षर, and how to ask whether a string is a real form.
+- [test/morphology.test.js](test/morphology.test.js) — run with `node --test`.
