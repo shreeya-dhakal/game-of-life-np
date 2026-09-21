@@ -24,7 +24,7 @@
 
 /* ══════════════════════════════════════════════════════════════════════
    देवनागरी सन्धि — orthographic joining.
-   Suffixes are written in their abstract form (एँ, ्यौं, इस्). This decides
+   Suffixes are written in their abstract form (एँ, ्यौँ, इस्). This decides
    how each one is actually spelled once it lands on a given stem:
      गर् + एँ  → गरेँ   (the halanta drops, the vowel becomes a matra)
      खा  + एँ  → खाएँ   (after a vowel it keeps its independent letter)
@@ -122,13 +122,13 @@ const PERSONS = [
 ];
 
 // छ-series endings, shared by habitual present, continuous, perfect and future.
-const CHA  = { ma:"छु", hami:"छौं", ta:"छस्", timi:"छौ", u:"छ", uni:"छन्" };
+const CHA  = { ma:"छु", hami:"छौँ", ta:"छस्", timi:"छौ", u:"छ", uni:"छन्" };
 // Past endings, shared by simple past and habitual past. One set, both spellings.
-const PAST = { ma:"एँ", hami:"यौं", ta:"इस्", timi:"यौ", u:"यो", uni:"ए" };
+const PAST = { ma:"एँ", hami:"यौँ", ta:"इस्", timi:"यौ", u:"यो", uni:"ए" };
 // अभ्यस्त भूत: the -थ- marker fuses with the ending, so it is one morph here.
-const HPAST = { ma:"थेँ", hami:"थ्यौं", ta:"थिस्", timi:"थ्यौ", u:"थ्यो", uni:"थे" };
+const HPAST = { ma:"थेँ", hami:"थ्यौँ", ta:"थिस्", timi:"थ्यौ", u:"थ्यो", uni:"थे" };
 // थियो-series, for the past compound tenses.
-const THI  = { ma:"थिएँ", hami:"थियौं", ta:"थिइस्", timi:"थियौ", u:"थियो", uni:"थिए" };
+const THI  = { ma:"थिएँ", hami:"थियौँ", ta:"थिइस्", timi:"थियौ", u:"थियो", uni:"थिए" };
 // -एको participle: plural subjects take -एका.
 const PTCP = { ma:"एको", hami:"एका", ta:"एको", timi:"एको", u:"एको", uni:"एका" };
 
@@ -137,7 +137,7 @@ const PTCP = { ma:"एको", hami:"एका", ta:"एको", timi:"एको
    from borrowing the ँ that belongs to the छ- and थ- series — see the note
    on the सम्भावना paradigm below. */
 const LINKER = {
-  cha: { C:"",  V:"न्", U:"ँ" },   // छु, छौं … and थेँ, थ्यौं …
+  cha: { C:"",  V:"न्", U:"ँ" },   // छु, छौँ … and थेँ, थ्यौँ …
   da:  { C:"",  V:"ँ",  U:"ँ" },   // दै, दा
   la:  { C:"",  V:"",   U:"" },    // ला, लास्, लौ, लान् — no nasalisation
 };
@@ -228,7 +228,7 @@ const PARADIGMS = [
   },
   {
     id:"future", short:"भविष्यत्", na:"सामान्य भविष्यत्", en:"simple future", enNote:"mostly written; speech usually uses the habitual present",
-    note:"लेख्य भाषामा बढी। बोलीमा प्रायः अभ्यस्त वर्तमानले नै काम चलाउँछ।", ex:"म भोलि काठमाडौं जानेछु।",
+    note:"लेख्य भाषामा बढी। बोलीमा प्रायः अभ्यस्त वर्तमानले नै काम चलाउँछ।", ex:"म भोलि काठमाडौँ जानेछु।",
     rule:{ C:"धातु + ने + छु", V:"धातु + ने + छु", U:"धातु + ने + छु" },
     parts(v,k){
       return PERSONS.find(p=>p.k===k).hon
@@ -243,21 +243,40 @@ const PARADIGMS = [
     rule:{ C:"धातु + ला", V:"धातु + ला", U:"धातु + ला" },
     parts(v,k){
       if (PERSONS.find(p=>p.k===k).hon) return [inf(v), { t:"aux", s:"होला" }];
+
+      // Irregular verbs are listed, not derived — the same escape hatch the
+      // imperative already uses for दे / देऊ / आइज. A verb whose probable
+      // paradigm does not fall out of its stem says so in v.prob.
+      const over = v.prob && v.prob[k];
+      if (over) return [{ t:"stem", s:over }];
+
       if (k === "ma") return [st(v), { t:"end", s:{ C:"उँला", V:"उँला", U:"ँला" }[v.cls] }];
       if (k === "hami") return v.cls === "U"
-        ? [pst(v), { t:"end", s:"औंला" }]
-        : [st(v), { t:"end", s:"औंला" }];
+        ? [pst(v), { t:"end", s:"औँला" }]
+        : [st(v), { t:"end", s:"औँला" }];
+
+      // 2nd person mid grade takes the vowel-initial ending औला, which fuses
+      // with the stem: गर् + औला → गरौला. It is NOT the ला-series ending with
+      // औ stuck on the end — that produced गर्लौ, which is not the form.
+      if (k === "timi") return v.cls === "U"
+        ? [pst(v), { t:"end", s:"औला" }]
+        : [st(v), { t:"end", s:"औला" }];
       // The ला-series takes no linker from any stem class. Handing उ-अन्त
       // stems the ँ of the छ-series both misspelled the form (आउँला for
       // ऊ, where the paradigm's own example says आउला) and collapsed म
       // into ऊ, since the 1sg ending for this class is itself ँला.
-      const tail = { ta:"लास्", timi:"लौ", u:"ला", uni:"लान्" }[k];
-      return [st(v), { t:"link", s:LINKER.la[v.cls] }, { t:"end", s:tail }];
+      // दिनु and लिनु build the ला-series on the suppletive दे- / ले-, the same
+      // stem their imperative uses. That is a stem alternation, not a list of
+      // forms, so it is declared once as probStem rather than slot by slot.
+      const tail = { ta:"लास्", u:"ला", uni:"लान्" }[k];
+      return [{ t:"stem", s:v.probStem || v.stem },
+              { t:"link", s:LINKER.la[v.cls] },
+              { t:"end", s:tail }];
     }
   },
   {
     id:"imp", short:"आज्ञा", na:"आज्ञा र इच्छा", en:"imperative & optative", enNote:"commands, requests, and “let's …”",
-    note:"आदेश, अनुरोध, र “गरौं” भन्ने प्रस्ताव।", ex:"कृपया यता आउनुहोस्।",
+    note:"आदेश, अनुरोध, र “गरौँ” भन्ने प्रस्ताव।", ex:"कृपया यता आउनुहोस्।",
     rule:{ C:"तिमी → धातु + अ", V:"तिमी → धातु + ऊ", U:"तिमी → उ हट्छ + ऊ" },
     parts(v,k){
       if (PERSONS.find(p=>p.k===k).hon) return [inf(v), { t:"aux", s:"होस्" }];
@@ -265,7 +284,7 @@ const PARADIGMS = [
       if (over) return [{ t:"stem", s:over }];
       const base = v.cls === "U" ? v.past : v.stem;
       if (k === "ta") return [{ t:"stem", s:base }];
-      const tail = { ma:"ऊँ", hami:"औं", timi:(v.cls === "C" ? "अ" : "ऊ"), u:"ओस्", uni:"ऊन्" }[k];
+      const tail = { ma:"ऊँ", hami:"औँ", timi:(v.cls === "C" ? "अ" : "ऊ"), u:"ओस्", uni:"ऊन्" }[k];
       return [{ t:"stem", s:base }, { t:"end", s:tail }];
     }
   },
@@ -293,8 +312,8 @@ const VERBS = [
 
   V("खानु","खा","V","to eat",true),
   V("जानु","जा","V","to go",false,{ past:"ग", irr:"भूत धातु ग" }),
-  V("दिनु","दि","V","to give",true,{ imp:{ ta:"दे", timi:"देऊ" } }),
-  V("लिनु","लि","V","to take",true,{ imp:{ ta:"ले", timi:"लेऊ" } }),
+  V("दिनु","दि","V","to give",true,{ imp:{ ta:"दे", timi:"देऊ" }, probStem:"दे" }),
+  V("लिनु","लि","V","to take",true,{ imp:{ ta:"ले", timi:"लेऊ" }, probStem:"ले" }),
 
   V("आउनु","आउ","U","to come",false,{ imp:{ ta:"आइज" } }),
   V("पाउनु","पाउ","U","to get",true),
@@ -313,11 +332,11 @@ const CLASS_NAME = { C:"व्यञ्जनान्त", V:"स्वरा�
 
 /* ── हुनु: suppletive, so it is written out rather than derived ── */
 const HUNU = {
-  ho:      { ma:"हुँ",  hami:"हौं",   ta:"होस्",  timi:"हौ",   tapai:"हुनुहुन्छ",    u:"हो",   uni:"हुन्",   uha:"हुनुहुन्छ" },
-  chha:    { ma:"छु",   hami:"छौं",   ta:"छस्",   timi:"छौ",   tapai:"हुनुहुन्छ",    u:"छ",    uni:"छन्",    uha:"हुनुहुन्छ" },
-  hunchha: { ma:"हुन्छु", hami:"हुन्छौं", ta:"हुन्छस्", timi:"हुन्छौ", tapai:"हुनुहुन्छ",    u:"हुन्छ",  uni:"हुन्छन्",  uha:"हुनुहुन्छ" },
-  thiyo:   { ma:"थिएँ", hami:"थियौं", ta:"थिइस्", timi:"थियौ", tapai:"हुनुहुन्थ्यो", u:"थियो", uni:"थिए",    uha:"हुनुहुन्थ्यो" },
-  bhayo:   { ma:"भएँ",  hami:"भयौं",  ta:"भइस्",  timi:"भयौ",  tapai:"हुनुभयो",     u:"भयो",  uni:"भए",     uha:"हुनुभयो" },
+  ho:      { ma:"हुँ",  hami:"हौँ",   ta:"होस्",  timi:"हौ",   tapai:"हुनुहुन्छ",    u:"हो",   uni:"हुन्",   uha:"हुनुहुन्छ" },
+  chha:    { ma:"छु",   hami:"छौँ",   ta:"छस्",   timi:"छौ",   tapai:"हुनुहुन्छ",    u:"छ",    uni:"छन्",    uha:"हुनुहुन्छ" },
+  hunchha: { ma:"हुन्छु", hami:"हुन्छौँ", ta:"हुन्छस्", timi:"हुन्छौ", tapai:"हुनुहुन्छ",    u:"हुन्छ",  uni:"हुन्छन्",  uha:"हुनुहुन्छ" },
+  thiyo:   { ma:"थिएँ", hami:"थियौँ", ta:"थिइस्", timi:"थियौ", tapai:"हुनुहुन्थ्यो", u:"थियो", uni:"थिए",    uha:"हुनुहुन्थ्यो" },
+  bhayo:   { ma:"भएँ",  hami:"भयौँ",  ta:"भइस्",  timi:"भयौ",  tapai:"हुनुभयो",     u:"भयो",  uni:"भए",     uha:"हुनुभयो" },
 };
 
 /* ── non-finite forms ── */

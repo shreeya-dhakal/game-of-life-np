@@ -108,11 +108,49 @@ test("honorific persons are built periphrastically, not by suffix", () => {
    ══════════════════════════════════════════════════════════════════ */
 
 test("सम्भावना — उ-अन्त stems take NO linker before ला", () => {
-  // was आउँलास् / आउँलौ / आउँला / आउँलान्
+  // was आउँलास् / आउँला / आउँलान्.  timi is not in this series at all — see
+  // the औला test below.
   assert.equal(form("आउनु", "prob", "ta"), "आउलास्");
-  assert.equal(form("आउनु", "prob", "timi"), "आउलौ");
   assert.equal(form("आउनु", "prob", "u"), "आउला");
   assert.equal(form("आउनु", "prob", "uni"), "आउलान्");
+});
+
+test("सम्भावना — 2nd mid takes औला, which fuses; it is not ला + औ", () => {
+  // गर्लौ was the wrong analysis: the ending is वowel-initial and fuses with
+  // the stem, exactly as the 1sg उँला and 1pl औँला do.
+  const expected = {
+    "गर्नु":"गरौला", "भन्नु":"भनौला", "हेर्नु":"हेरौला", "पढ्नु":"पढौला",
+    "लेख्नु":"लेखौला", "सुन्नु":"सुनौला", "बुझ्नु":"बुझौला", "सिक्नु":"सिकौला",
+    "देख्नु":"देखौला", "किन्नु":"किनौला", "राख्नु":"राखौला", "बस्नु":"बसौला",
+    "सुत्नु":"सुतौला", "हिँड्नु":"हिँडौला",
+  };
+  for (const [inf, want] of Object.entries(expected))
+    assert.equal(form(inf, "prob", "timi"), want, inf);
+});
+
+test("सम्भावना — 2nd low keeps the ला-series ending स्", () => {
+  // गर्लास् is the documented form and must NOT be regularised to गरौस्
+  for (const inf of ["गर्नु", "भन्नु", "हेर्नु", "पढ्नु", "लेख्नु", "सुन्नु",
+                     "बुझ्नु", "सिक्नु", "देख्नु", "किन्नु", "राख्नु", "बस्नु",
+                     "सुत्नु", "हिँड्नु"]){
+    const f = form(inf, "prob", "ta");
+    assert.ok(f.endsWith("लास्"), `${inf}: ${f}`);
+  }
+  assert.equal(form("गर्नु", "prob", "ta"), "गर्लास्");
+});
+
+test("सम्भावना — 1pl uses the candrabindu spelling औँला", () => {
+  assert.equal(form("गर्नु", "prob", "hami"), "गरौँला");
+  assert.equal(form("भन्नु", "prob", "hami"), "भनौँला");
+  // and stays distinct from the 2nd mid, which has no nasal
+  assert.notEqual(form("गर्नु", "prob", "hami"), form("गर्नु", "prob", "timi"));
+});
+
+test("an irregular verb can list its probable forms instead of deriving them", () => {
+  const v = Object.assign({}, verb("गर्नु"), { prob: { timi: "गरिहाल्ला" } });
+  assert.equal(N.generate(v, "prob", "timi").form, "गरिहाल्ला");
+  // and the override touches only the slot it names
+  assert.equal(N.generate(v, "prob", "ta").form, "गर्लास्");
 });
 
 test("सम्भावना — the generated 3sg matches the paradigm's own example", () => {
@@ -255,8 +293,38 @@ test("irregular imperatives override the derived form", () => {
 
 test("the participle agrees in number", () => {
   assert.equal(form("गर्नु", "presperf", "ma"), "गरेको छु");
-  assert.equal(form("गर्नु", "presperf", "hami"), "गरेका छौं");
+  assert.equal(form("गर्नु", "presperf", "hami"), "गरेका छौँ");
   assert.equal(form("गर्नु", "pastperf", "uni"), "गरेका थिए");
+});
+
+test("दिनु and लिनु build the ला-series on the suppletive दे- / ले-", () => {
+  assert.equal(form("दिनु", "prob", "ta"), "देलास्");
+  assert.equal(form("दिनु", "prob", "u"), "देला");
+  assert.equal(form("दिनु", "prob", "uni"), "देलान्");
+  assert.equal(form("लिनु", "prob", "ta"), "लेलास्");
+  assert.equal(form("लिनु", "prob", "u"), "लेला");
+  assert.equal(form("लिनु", "prob", "uni"), "लेलान्");
+  // the alternation is confined to the ला-series; the vowel-initial endings
+  // still build on दि- / लि-
+  assert.equal(form("दिनु", "prob", "ma"), "दिउँला");
+  assert.equal(form("दिनु", "prob", "timi"), "दिऔला");
+  // and a verb with no probStem is unaffected
+  assert.equal(form("गर्नु", "prob", "u"), "गर्ला");
+});
+
+test("the nasal vowel is normalised to candrabindu, never anusvara", () => {
+  const ANUSVARA = "\u0902";
+  for (const v of N.VERBS)
+    for (const f of N.formSet(v))
+      assert.ok(!f.includes(ANUSVARA), `${v.inf}: ${f} carries anusvara`);
+});
+
+test("1pl is candrabindu across every paradigm, not just सम्भावना", () => {
+  assert.equal(form("गर्नु", "habpres", "hami"), "गर्छौँ");
+  assert.equal(form("गर्नु", "past", "hami"), "गर्यौँ");
+  assert.equal(form("गर्नु", "habpast", "hami"), "गर्थ्यौँ");
+  assert.equal(form("गर्नु", "pastcont", "hami"), "गर्दै थियौँ");
+  assert.equal(form("गर्नु", "imp", "hami"), "गरौँ");
 });
 
 test("हुनु is suppletive throughout and is not derived", () => {

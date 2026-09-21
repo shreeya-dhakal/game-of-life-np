@@ -6,6 +6,10 @@
  * One row per feature bundle, including the morpheme breakdown and which
  * sandhi rule fired at each seam, so a wrong form can be traced to the rule
  * that produced it rather than just noticed.
+ *
+ * subject_marking describes the SUBJECT, not the verb. Ergative -ले is a fact
+ * about argument structure; it never selects a conjugation, and no form in
+ * this file is generated or constrained by it.
  */
 
 "use strict";
@@ -17,7 +21,8 @@ const N = require(path.join(__dirname, "..", "morphology.js"));
 const COLUMNS = [
   "verb", "gloss", "class", "class_name", "transitive", "stem", "past_stem",
   "kind", "paradigm", "paradigm_na", "paradigm_en", "person", "person_en",
-  "honorific", "ergative", "needs_check", "form", "aksara", "morphemes", "rules",
+  "honorific", "subject", "subject_marking", "needs_check", "form", "aksara",
+  "morphemes", "rules",
 ];
 
 const cell = v => {
@@ -50,7 +55,11 @@ for (const v of N.VERBS){
         person: person.k,
         person_en: person.en,
         honorific: person.hon ? "yes" : "no",
-        ergative: para.erg && v.tr ? "yes" : "no",
+        // A property of the subject's argument structure, NOT of the verb form:
+        // म गर्ला and मैले गरुँला carry the same conjugation. Recorded here so
+        // the dataset says which subject the form takes, never to gate it.
+        subject: para.erg && v.tr ? person.erg : person.pro,
+        subject_marking: para.erg && v.tr ? "ergative -ले" : "nominative",
         needs_check: para.verify ? "yes" : "no",
         form: g.form,
         aksara: N.clusters(g.form).join(" "),
