@@ -260,14 +260,15 @@ const PARADIGMS = [
       // औ stuck on the end — that produced गर्लौ, which is not the form.
       if (k === "timi") return v.cls === "U"
         ? [pst(v), { t:"end", s:"औला" }]
-        : [st(v), { t:"end", s:"औला" }];
+        : [{ t:"stem", s:v.probStem || v.stem }, { t:"end", s:"औला" }];
       // The ला-series takes no linker from any stem class. Handing उ-अन्त
       // stems the ँ of the छ-series both misspelled the form (आउँला for
       // ऊ, where the paradigm's own example says आउला) and collapsed म
       // into ऊ, since the 1sg ending for this class is itself ँला.
-      // दिनु and लिनु build the ला-series on the suppletive दे- / ले-, the same
-      // stem their imperative uses. That is a stem alternation, not a list of
-      // forms, so it is declared once as probStem rather than slot by slot.
+      // probStem covers every slot but the first person. दिनु and लिनु build
+      // on the suppletive दे- / ले- — the stem their imperative also uses —
+      // for 2nd and 3rd person alike: देलास्, देऔला, देला, देलान्. Only
+      // दिउँला and दिऔँला keep the plain stem.
       const tail = { ta:"लास्", u:"ला", uni:"लान्" }[k];
       return [{ t:"stem", s:v.probStem || v.stem },
               { t:"link", s:LINKER.la[v.cls] },

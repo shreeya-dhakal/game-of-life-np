@@ -297,19 +297,27 @@ test("the participle agrees in number", () => {
   assert.equal(form("गर्नु", "pastperf", "uni"), "गरेका थिए");
 });
 
-test("दिनु and लिनु build the ला-series on the suppletive दे- / ले-", () => {
+test("दिनु and लिनु build सम्भावना on the suppletive दे- / ले-", () => {
   assert.equal(form("दिनु", "prob", "ta"), "देलास्");
+  assert.equal(form("दिनु", "prob", "timi"), "देऔला");
   assert.equal(form("दिनु", "prob", "u"), "देला");
   assert.equal(form("दिनु", "prob", "uni"), "देलान्");
   assert.equal(form("लिनु", "prob", "ta"), "लेलास्");
+  assert.equal(form("लिनु", "prob", "timi"), "लेऔला");
   assert.equal(form("लिनु", "prob", "u"), "लेला");
   assert.equal(form("लिनु", "prob", "uni"), "लेलान्");
-  // the alternation is confined to the ला-series; the vowel-initial endings
-  // still build on दि- / लि-
+});
+
+test("probStem reaches every slot except the first person", () => {
+  // दिउँला and दिऔँला keep the plain stem; everything else alternates
   assert.equal(form("दिनु", "prob", "ma"), "दिउँला");
-  assert.equal(form("दिनु", "prob", "timi"), "दिऔला");
-  // and a verb with no probStem is unaffected
-  assert.equal(form("गर्नु", "prob", "u"), "गर्ला");
+  assert.equal(form("दिनु", "prob", "hami"), "दिऔँला");
+  assert.equal(form("लिनु", "prob", "ma"), "लिउँला");
+  assert.equal(form("लिनु", "prob", "hami"), "लिऔँला");
+  // a vowel-final verb with no probStem is untouched by the mechanism
+  assert.equal(form("खानु", "prob", "timi"), "खाऔला");
+  assert.equal(form("जानु", "prob", "timi"), "जाऔला");
+  assert.equal(form("गर्नु", "prob", "timi"), "गरौला");
 });
 
 test("the nasal vowel is normalised to candrabindu, never anusvara", () => {

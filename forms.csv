@@ -1506,7 +1506,7 @@ verb,gloss,class,class_name,transitive,stem,past_stem,kind,paradigm,paradigm_na,
 दिनु,to give,V,स्वरान्त,yes,दि,दि,finite,prob,सम्भावना,probable,ma,1st person · singular,no,म,nominative,yes,दिउँला,दि उँ ला,stem:दि + end:उँला,empty-base > hiatus
 दिनु,to give,V,स्वरान्त,yes,दि,दि,finite,prob,सम्भावना,probable,hami,1st person · plural,no,हामी(हरू),nominative,yes,दिऔँला,दि औँ ला,stem:दि + end:औँला,empty-base > hiatus
 दिनु,to give,V,स्वरान्त,yes,दि,दि,finite,prob,सम्भावना,probable,ta,2nd person · low grade,no,तँ,nominative,yes,देलास्,दे ला स्,stem:दे + end:लास्,empty-base > concatenate
-दिनु,to give,V,स्वरान्त,yes,दि,दि,finite,prob,सम्भावना,probable,timi,2nd person · mid grade,no,तिमी(हरू),nominative,yes,दिऔला,दि औ ला,stem:दि + end:औला,empty-base > hiatus
+दिनु,to give,V,स्वरान्त,yes,दि,दि,finite,prob,सम्भावना,probable,timi,2nd person · mid grade,no,तिमी(हरू),nominative,yes,देऔला,दे औ ला,stem:दे + end:औला,empty-base > hiatus
 दिनु,to give,V,स्वरान्त,yes,दि,दि,finite,prob,सम्भावना,probable,tapai,2nd person · high grade,yes,तपाईं(हरू),nominative,yes,दिनुहोला,दि नु हो ला,stem:दिनु + aux:होला,empty-base > concatenate
 दिनु,to give,V,स्वरान्त,yes,दि,दि,finite,prob,सम्भावना,probable,u,3rd person · low grade,no,ऊ / त्यो,nominative,yes,देला,दे ला,stem:दे + end:ला,empty-base > concatenate
 दिनु,to give,V,स्वरान्त,yes,दि,दि,finite,prob,सम्भावना,probable,uni,3rd person · mid grade,no,उनी / उनीहरू,nominative,yes,देलान्,दे ला न्,stem:दे + end:लान्,empty-base > concatenate
@@ -1596,7 +1596,7 @@ verb,gloss,class,class_name,transitive,stem,past_stem,kind,paradigm,paradigm_na,
 लिनु,to take,V,स्वरान्त,yes,लि,लि,finite,prob,सम्भावना,probable,ma,1st person · singular,no,म,nominative,yes,लिउँला,लि उँ ला,stem:लि + end:उँला,empty-base > hiatus
 लिनु,to take,V,स्वरान्त,yes,लि,लि,finite,prob,सम्भावना,probable,hami,1st person · plural,no,हामी(हरू),nominative,yes,लिऔँला,लि औँ ला,stem:लि + end:औँला,empty-base > hiatus
 लिनु,to take,V,स्वरान्त,yes,लि,लि,finite,prob,सम्भावना,probable,ta,2nd person · low grade,no,तँ,nominative,yes,लेलास्,ले ला स्,stem:ले + end:लास्,empty-base > concatenate
-लिनु,to take,V,स्वरान्त,yes,लि,लि,finite,prob,सम्भावना,probable,timi,2nd person · mid grade,no,तिमी(हरू),nominative,yes,लिऔला,लि औ ला,stem:लि + end:औला,empty-base > hiatus
+लिनु,to take,V,स्वरान्त,yes,लि,लि,finite,prob,सम्भावना,probable,timi,2nd person · mid grade,no,तिमी(हरू),nominative,yes,लेऔला,ले औ ला,stem:ले + end:औला,empty-base > hiatus
 लिनु,to take,V,स्वरान्त,yes,लि,लि,finite,prob,सम्भावना,probable,tapai,2nd person · high grade,yes,तपाईं(हरू),nominative,yes,लिनुहोला,लि नु हो ला,stem:लिनु + aux:होला,empty-base > concatenate
 लिनु,to take,V,स्वरान्त,yes,लि,लि,finite,prob,सम्भावना,probable,u,3rd person · low grade,no,ऊ / त्यो,nominative,yes,लेला,ले ला,stem:ले + end:ला,empty-base > concatenate
 लिनु,to take,V,स्वरान्त,yes,लि,लि,finite,prob,सम्भावना,probable,uni,3rd person · mid grade,no,उनी / उनीहरू,nominative,yes,लेलान्,ले ला न्,stem:ले + end:लान्,empty-base > concatenate
